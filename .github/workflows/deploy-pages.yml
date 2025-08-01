@@ -1,0 +1,48 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ master ]   # ajusta si tu rama por defecto es 'main'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 16 es compatible con webpack 1 y Babel 6 de tu proyecto
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '16'
+
+      # Instala y construye el bundle
+      - run: npm install
+      - run: npx webpack -p
+
+      # Evita que Jekyll interfiera (por si acaso)
+      - run: echo "" > dist/.nojekyll
+
+      # Sube 'dist' como artefacto para Pages
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

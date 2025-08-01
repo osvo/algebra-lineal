@@ -1,3 +1,4 @@
+import './LinearTransformationVisualizer.jsx';
 const EPSILON = 0.05;
 
 function arrow(ctx, x1, y1, x2, y2, s) {
@@ -507,4 +508,8 @@ class App extends React.Component {
 }
 
 
-ReactDOM.render(<App />, document.getElementById('app'));
+ReactDOM.render(
+  React.createElement(window.LinearTransformationVisualizer),
+  document.getElementById('app')
+);
+

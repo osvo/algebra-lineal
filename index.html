@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Herramientas de Visualización de Álgebra Lineal</title>
+    <!-- Tailwind CSS para el diseño -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts para una tipografía más agradable -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* Estilo personalizado para un fondo degradado sutil */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* Color de fondo base (azul oscuro) */
+            background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0);
+            background-size: 2rem 2rem;
+        }
+        /* Efecto de "glow" al pasar el mouse sobre las tarjetas */
+        .card-hover-effect {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card-hover-effect:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0 15px 0 rgba(56, 189, 248, 0.4); /* Sombra de color cian */
+        }
+    </style>
+</head>
+<body class="text-slate-200 antialiased">
+
+    <div class="container mx-auto px-4 py-8 md:py-16">
+
+        <header class="text-center mb-12">
+            <h1 class="text-4xl md:text-5xl font-bold text-cyan-300 mb-4">
+                Laboratorio Interactivo de Álgebra Lineal
+            </h1>
+            <p class="text-lg text-slate-400 max-w-3xl mx-auto">
+                Una colección de herramientas interactivas para visualizar conceptos fundamentales del álgebra lineal, desde transformaciones en 2D y 3D hasta cambios de base.
+            </p>
+        </header>
+
+        <main>
+            <!-- Contenedor de la cuadrícula de aplicaciones -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+
+                <!-- Tarjeta de Aplicación: Transformaciones 2D -->
+                <a href="transformaciones v1-0.html" class="card-hover-effect bg-slate-800/50 backdrop-blur-sm p-6 rounded-lg border border-slate-700 flex flex-col no-underline">
+                    <h2 class="text-2xl font-bold text-white mb-2">Transformaciones 2D</h2>
+                    <p class="text-slate-400 flex-grow mb-4">
+                        Visualice cómo una matriz 2x2 transforma el espacio. Explore el determinante, los vectores propios y el kernel de forma interactiva.
+                    </p>
+                    <span class="text-cyan-400 font-semibold self-end">Abrir aplicativo &rarr;</span>
+                </a>
+
+                <!-- Tarjeta de Aplicación: Cambio de Base -->
+                <a href="cambio_de_base.html" class="card-hover-effect bg-slate-800/50 backdrop-blur-sm p-6 rounded-lg border border-slate-700 flex flex-col no-underline">
+                    <h2 class="text-2xl font-bold text-white mb-2">Cambio de Base</h2>
+                    <p class="text-slate-400 flex-grow mb-4">
+                        Manipule los vectores de una nueva base y observe cómo cambian las coordenadas de un vector arbitrario entre la base estándar y la nueva.
+                    </p>
+                    <span class="text-cyan-400 font-semibold self-end">Abrir aplicativo &rarr;</span>
+                </a>
+
+                <!-- Tarjeta de Aplicación: Composición de Transformaciones -->
+                <a href="composiciones.html" class="card-hover-effect bg-slate-800/50 backdrop-blur-sm p-6 rounded-lg border border-slate-700 flex flex-col no-underline">
+                    <h2 class="text-2xl font-bold text-white mb-2">Composición de Transformaciones</h2>
+                    <p class="text-slate-400 flex-grow mb-4">
+                        Aplique dos transformaciones secuencialmente y visualice el resultado. Compruebe que el orden de la multiplicación de matrices importa.
+                    </p>
+                    <span class="text-cyan-400 font-semibold self-end">Abrir aplicativo &rarr;</span>
+                </a>
+
+                <!-- Tarjeta de Aplicación: Transformaciones 3D -->
+                <a href="3Dv09.html" class="card-hover-effect bg-slate-800/50 backdrop-blur-sm p-6 rounded-lg border border-slate-700 flex flex-col no-underline">
+                    <h2 class="text-2xl font-bold text-white mb-2">Transformaciones 3D</h2>
+                    <p class="text-slate-400 flex-grow mb-4">
+                        Una potente herramienta para visualizar transformaciones en tres dimensiones. Analice proyecciones, rotaciones, reflexiones y más.
+                    </p>
+                    <span class="text-cyan-400 font-semibold self-end">Abrir aplicativo &rarr;</span>
+                </a>
+
+                <!-- Tarjeta de Aplicación: Matrices no Cuadradas -->
+                <a href="nonsquare.html" class="card-hover-effect bg-slate-800/50 backdrop-blur-sm p-6 rounded-lg border border-slate-700 flex flex-col no-underline">
+                    <h2 class="text-2xl font-bold text-white mb-2">Matrices no Cuadradas</h2>
+                    <p class="text-slate-400 flex-grow mb-4">
+                        Explore cómo las matrices no cuadradas mapean vectores entre espacios de diferentes dimensiones (ej. de ℝ² a ℝ³).
+                    </p>
+                    <span class="text-cyan-400 font-semibold self-end">Abrir aplicativo &rarr;</span>
+                </a>
+
+                <!-- Tarjeta de Aplicación: Transformaciones no Lineales -->
+                <a href="nolineal.html" class="card-hover-effect bg-slate-800/50 backdrop-blur-sm p-6 rounded-lg border border-slate-700 flex flex-col no-underline">
+                    <h2 class="text-2xl font-bold text-white mb-2">Transformaciones no Lineales</h2>
+                    <p class="text-slate-400 flex-grow mb-4">
+                        Una vez entendidas las transformaciones lineales, vale la pena comprender cómo se ven algunas que no siguen estas reglas.
+                    </p>
+                    <span class="text-cyan-400 font-semibold self-end">Abrir aplicativo &rarr;</span>
+                </a>
+
+            </div>
+        </main>
+
+        <footer class="text-center mt-16">
+            <p class="text-slate-500">Proyecto creado por Juan Camilo Osorio Oviedo</p>
+        </footer>
+
+    </div>
+
+</body>
+</html>
+

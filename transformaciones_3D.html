@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador de Transformaciones Lineales 3D - Versión Avanzada</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/numeric/1.2.6/numeric.min.js"></script>
+    <style>
+        body { margin: 0; background-color: #0f172a; color: #e2e8f0; font-family: 'Inter', sans-serif; }
+        #main-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+        #canvas-container { width: 100%; height: 60vh; position: relative; background-color: #1e293b; border-radius: 0.5rem; overflow: hidden; }
+        canvas { display: block; }
+        .panel { background-color: #1e293b; padding: 1rem; border-radius: 0.5rem; border: 1px solid #334155; }
+        .matrix-input { width: 100%; background-color: #334155; color: #e2e8f0; border: 1px solid #475569; border-radius: 0.25rem; text-align: center; font-weight: bold; }
+        .styled-select { background-color: #334155; border: 1px solid #475569; border-radius: 0.25rem; padding: 0.5rem; width: 100%; color: #e2e8f0; }
+        .control-button { background-color: transparent; border: none; color: #94a3b8; padding: 0.5rem; border-radius: 9999px; transition: background-color 0.2s, color 0.2s; cursor: pointer; }
+        .control-button:hover { background-color: #334155; color: #e2e8f0; }
+        .control-button.active { color: #5eead4; }
+        #view-controls { 
+            position: absolute; 
+            top: 0.75rem; 
+            right: 0.75rem; 
+            z-index: 10; 
+            background-color: rgba(30, 41, 59, 0.7); 
+            backdrop-filter: blur(5px); 
+            border-radius: 0.5rem; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 0.25rem; 
+            padding: 0.25rem; 
+            border: 1px solid #334155;
+        }
+        .view-btn { 
+            font-size: 0.75rem; 
+            font-weight: bold; 
+            width: 2rem; 
+            height: 2rem; 
+            border-radius: 9999px; 
+            display: grid;
+            place-items: center;
+            padding: 0 !important; 
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body class="p-4">
+
+    <div id="main-container">
+
+        <div id="controls" class="panel w-full mb-4 pt-4">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                <div>
+                    <label for="vis-mode" class="block mb-2 text-sm font-medium text-gray-400">Modo de Visualización</label>
+                    <select id="vis-mode" class="styled-select">
+                        <option value="cubes">Cubos (Octantes)</option>
+                        <option value="vertices_gradient">Nube de puntos</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="preset-category" class="block mb-2 text-sm font-medium text-gray-400">Categoría</label>
+                    <select id="preset-category" class="styled-select"></select>
+                </div>
+                <div>
+                    <label for="presets" class="block mb-2 text-sm font-medium text-gray-400">Transformación</label>
+                    <select id="presets" class="styled-select"></select>
+                </div>
+            </div>
+            <div id="custom-params-container" class="hidden mt-4 space-y-3 p-3 bg-slate-800/50 rounded-lg max-w-md mx-auto">
+                <h3 class="text-md font-medium text-gray-400 text-center -mt-1">Parámetros de la Transformación</h3>
+                <div id="vector-inputs" class="grid grid-cols-3 gap-2 items-center">
+                    <label for="vx" class="text-sm text-center font-mono">v<sub>x</sub></label>
+                    <label for="vy" class="text-sm text-center font-mono">v<sub>y</sub></label>
+                    <label for="vz" class="text-sm text-center font-mono">v<sub>z</sub></label>
+                    <input type="number" id="vx" class="matrix-input" value="1" step="0.1">
+                    <input type="number" id="vy" class="matrix-input" value="1" step="0.1">
+                    <input type="number" id="vz" class="matrix-input" value="1" step="0.1">
+                </div>
+                <div id="angle-slider-container" class="hidden items-center gap-2 pt-2">
+                    <label for="angle-slider" class="font-medium text-sm">Ángulo:</label>
+                    <input id="angle-slider" type="range" min="0" max="360" step="1" value="45" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                    <span id="angle-value" class="text-cyan-400 w-16 text-center font-mono">45°</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="canvas-container">
+            <div id="view-controls">
+                <button id="home-btn" class="control-button"></button>
+                <button id="view-xy-btn" class="control-button view-btn">XY</button>
+                <button id="view-xz-btn" class="control-button view-btn">XZ</button>
+                <button id="view-yz-btn" class="control-button view-btn">YZ</button>
+            </div>
+        </div>
+        
+        <div class="w-full mt-4 panel">
+             <div class="grid grid-cols-1 md:grid-cols-[auto_1fr_1fr] items-center gap-x-6 gap-y-4">
+                <div class="flex items-center gap-2">
+                    <button id="play-pause-btn" class="control-button"></button>
+                    <button id="loop-btn" class="control-button"></button>
+                </div>
+                <div class="flex items-center gap-2 w-full">
+                    <label for="t-slider" class="font-medium">t:</label>
+                    <input id="t-slider" type="range" min="0" max="1" step="0.01" value="1" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                    <span id="t-value" class="text-cyan-400 w-12 text-center font-mono">1.00</span>
+                </div>
+                <div class="flex items-center gap-2 w-full">
+                    <label for="speed-slider" class="font-medium">Velocidad:</label>
+                    <input id="speed-slider" type="range" min="0.25" max="4" step="0.25" value="1" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                    <span id="speed-value" class="text-cyan-400 w-12 text-center font-mono">1.0x</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="w-full mt-4 grid grid-cols-1 gap-4">
+            <div id="analysis-panel" class="panel">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div id="matrix-grid-container">
+                        <h3 class="text-md font-bold text-center mb-3">Matriz de Transformación (<span class="text-cyan-400">A</span>)</h3>
+                        <div class="grid grid-cols-3 gap-2 items-center justify-items-center max-w-xs mx-auto">
+                            <input type="number" id="m00" class="matrix-input main-matrix-input text-green-400" value="1.0" step="0.1"><input type="number" id="m01" class="matrix-input main-matrix-input text-red-400" value="0.0" step="0.1"><input type="number" id="m02" class="matrix-input main-matrix-input text-blue-400" value="0.0" step="0.1">
+                            <input type="number" id="m10" class="matrix-input main-matrix-input text-green-400" value="0.0" step="0.1"><input type="number" id="m11" class="matrix-input main-matrix-input text-red-400" value="1.0" step="0.1"><input type="number" id="m12" class="matrix-input main-matrix-input text-blue-400" value="0.0" step="0.1">
+                            <input type="number" id="m20" class="matrix-input main-matrix-input text-green-400" value="0.0" step="0.1"><input type="number" id="m21" class="matrix-input main-matrix-input text-red-400" value="0.0" step="0.1"><input type="number" id="m22" class="matrix-input main-matrix-input text-blue-400" value="1.0" step="0.1">
+                        </div>
+                    </div>
+                    <div>
+                        <div class="mb-4 flex justify-around pt-10">
+                            <label class="flex items-center space-x-2 cursor-pointer text-sm"><input type="checkbox" id="show-determinant" class="form-checkbox h-4 w-4 text-cyan-400 bg-slate-700 rounded"><span>Determinante</span></label>
+                            <label class="flex items-center space-x-2 cursor-pointer text-sm"><input type="checkbox" id="show-eigenvectors" class="form-checkbox h-4 w-4 text-cyan-400 bg-slate-700 rounded"><span>Vectores Propios</span></label>
+                            <label class="flex items-center space-x-2 cursor-pointer text-sm"><input type="checkbox" id="show-kernel" class="form-checkbox h-4 w-4 text-cyan-400 bg-slate-700 rounded"><span>Kernel</span></label>
+                        </div>
+                        <div class="font-mono text-sm space-y-2">
+                            <div class="grid grid-cols-2 gap-x-4">
+                                <span><span class="font-bold text-gray-400">Rango =</span> <span id="rank-value" class="text-white font-bold">3</span></span>
+                                <span><span class="font-bold text-gray-400">Nulidad =</span> <span id="nullity-value" class="text-white font-bold">0</span></span>
+                            </div>
+                            <div><span class="font-bold text-gray-400">det(<span class="text-cyan-400">A</span>) =</span> <span id="determinant-value" class="text-white font-bold">1.000</span> <span id="determinant-desc" class="text-xs text-gray-500 ml-2"></span></div>
+                            <div><span class="font-bold text-gray-400">Ker(<span class="text-cyan-400">A</span>) =</span> <span id="kernel-value" class="text-purple-400 font-bold">{ [0,0,0] }</span></div>
+                            <div id="inverse-container" class="mt-2"></div>
+                            <div id="eigen-analysis" class="mt-2"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        
+        let scene, camera, renderer, controls, initialCameraState;
+        let transformedArrowI, transformedArrowJ, transformedArrowK;
+        let octantCubesGroup, verticesGradientGroup; 
+        let imagePlane, imageLine, imagePoint;
+
+        let activeVisGroup;
+        let determinantBox, eigenVectorsGroup, kernelGroup;
+        let analysis = {};
+        let animationState = { t: 1, isPlaying: false, isLooping: false, speed: 1, lastTime: 0, lastT: -1 };
+
+        const i_hat = new THREE.Vector3(1, 0, 0), j_hat = new THREE.Vector3(0, 1, 0), k_hat = new THREE.Vector3(0, 0, 1);
+        let i_hat_final = i_hat.clone(), j_hat_final = j_hat.clone(), k_hat_final = k_hat.clone();
+        
+        const presets = {
+            "Personalizado": {
+                "Matriz Actual": { matrix: [] }
+            },
+            "Básicas": {
+                "Matriz Identidad": { matrix: [1,0,0, 0,1,0, 0,0,1] },
+                "Matriz Cero": { matrix: [0,0,0, 0,0,0, 0,0,0] },
+                "Escalamiento Uniforme": { matrix: [1.5,0,0, 0,1.5,0, 0,0,1.5] },
+                "Escalamiento por Ejes": { matrix: [1.5,0,0, 0,0.5,0, 0,0,1] },
+            },
+            "Proyecciones": {
+                "Sobre Plano XY": { matrix: [1,0,0, 0,1,0, 0,0,0] },
+                "Sobre Plano XZ": { matrix: [1,0,0, 0,0,0, 0,0,1] },
+                "Sobre Plano YZ": { matrix: [0,0,0, 0,1,0, 0,0,1] },
+                "Sobre Eje X": { matrix: [1,0,0, 0,0,0, 0,0,0] },
+                "Sobre Eje Y": { matrix: [0,0,0, 0,1,0, 0,0,0] },
+                "Sobre Eje Z": { matrix: [0,0,0, 0,0,0, 0,0,1] },
+                "Proyección sobre Vector": { type: 'projection', requiresVector: true }
+            },
+            "Reflexiones": {
+                "Respecto al Origen": { matrix: [-1,0,0, 0,-1,0, 0,0,-1] },
+                "Respecto al Plano XY": { matrix: [1,0,0, 0,1,0, 0,0,-1] },
+                "Respecto al Plano XZ": { matrix: [1,0,0, 0,-1,0, 0,0,1] },
+                "Respecto al Plano YZ": { matrix: [-1,0,0, 0,1,0, 0,0,1] },
+                "Reflexión sobre Plano": { type: 'reflection', requiresVector: true }
+            },
+            "Rotaciones": {
+                "Sobre Eje X (45°)": { matrix: [1, 0, 0, 0, Math.cos(Math.PI/4), -Math.sin(Math.PI/4), 0, Math.sin(Math.PI/4), Math.cos(Math.PI/4)] },
+                "Sobre Eje X (60°)": { matrix: [1, 0, 0, 0, Math.cos(Math.PI/3), -Math.sin(Math.PI/3), 0, Math.sin(Math.PI/3), Math.cos(Math.PI/3)] },
+                "Sobre Eje X (90°)": { matrix: [1,0,0, 0,0,-1, 0,1,0] },
+                "Sobre Eje Y (45°)": { matrix: [Math.cos(Math.PI/4), 0, Math.sin(Math.PI/4), 0, 1, 0, -Math.sin(Math.PI/4), 0, Math.cos(Math.PI/4)] },
+                "Sobre Eje Y (60°)": { matrix: [Math.cos(Math.PI/3), 0, Math.sin(Math.PI/3), 0, 1, 0, -Math.sin(Math.PI/3), 0, Math.cos(Math.PI/3)] },
+                "Sobre Eje Y (90°)": { matrix: [0,0,1, 0,1,0, -1,0,0] },
+                "Sobre Eje Z (45°)": { matrix: [Math.cos(Math.PI/4), -Math.sin(Math.PI/4), 0, Math.sin(Math.PI/4), Math.cos(Math.PI/4), 0, 0, 0, 1] },
+                "Sobre Eje Z (60°)": { matrix: [Math.cos(Math.PI/3), -Math.sin(Math.PI/3), 0, Math.sin(Math.PI/3), Math.cos(Math.PI/3), 0, 0, 0, 1] },
+                "Sobre Eje Z (90°)": { matrix: [0,-1,0, 1,0,0, 0,0,1] },
+                "Rotación sobre Eje": { type: 'rotation', requiresVector: true, requiresAngle: true }
+            },
+            "Cizallamientos": {
+                "en XY": { matrix: [1,1,0, 0,1,0, 0,0,1] },
+                "en YX": { matrix: [1,0,0, 1,1,0, 0,0,1] },
+                "en XZ": { matrix: [1,0,1, 0,1,0, 0,0,1] },
+                "en ZX": { matrix: [1,0,0, 0,1,0, 1,0,1] },
+                "en YZ": { matrix: [1,0,0, 0,1,1, 0,0,1] },
+                "en ZY": { matrix: [1,0,0, 0,1,0, 0,1,1] },
+            }
+        };
+        
+        let i_hat_t = new THREE.Vector3(), j_hat_t = new THREE.Vector3(), k_hat_t = new THREE.Vector3();
+        let transformMatrix4 = new THREE.Matrix4();
+        
+        function init() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1e293b);
+
+            const aspect = container.clientWidth / container.clientHeight;
+            const frustumSize = 18;
+            camera = new THREE.OrthographicCamera(frustumSize * aspect / -2, frustumSize * aspect / 2, frustumSize / 2, frustumSize / -2, 0.1, 100);
+            camera.position.set(10, 10, 10);
+            camera.lookAt(scene.position);
+            initialCameraState = { position: camera.position.clone(), zoom: camera.zoom };
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            
+            const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+            scene.add(ambientLight);
+
+            createVisualElements();
+            setupUIListeners();
+            animate();
+            
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function createVisualElements() {
+            createStaticHelpers(); createBasisVectors(); createTransformedVectors();
+            createOctantCubes();
+            createVerticesGradient();
+            createDeterminantBox(); createEigenVectors(); createKernelVisuals();
+            createImageHelpers();
+            activeVisGroup = octantCubesGroup;
+        }
+        
+        function createImageHelpers() {
+            const planeGeom = new THREE.PlaneGeometry(30, 30);
+            const planeMat = new THREE.MeshStandardMaterial({ 
+                color: 0xffffff, 
+                side: THREE.DoubleSide, 
+                transparent: true, 
+                opacity: 0.25 
+            });
+            imagePlane = new THREE.Mesh(planeGeom, planeMat);
+            imagePlane.visible = false;
+            scene.add(imagePlane);
+            
+            const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 3, transparent: true, opacity: 0.5 });
+            const lineGeom = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-100, 0, 0), new THREE.Vector3(100, 0, 0)]);
+            imageLine = new THREE.Line(lineGeom, lineMat);
+            imageLine.visible = false;
+            scene.add(imageLine);
+
+            const sphereGeom = new THREE.SphereGeometry(0.1, 16, 16);
+            const sphereMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            imagePoint = new THREE.Mesh(sphereGeom, sphereMat);
+            imagePoint.visible = false;
+            scene.add(imagePoint);
+        }
+
+        function createStaticHelpers() {
+            const axisLength = 10;
+            const createAxis = (vector, color) => {
+                const material = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.3 });
+                const points = [vector.clone().multiplyScalar(-axisLength), vector.clone().multiplyScalar(axisLength)];
+                const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                scene.add(new THREE.Line(geometry, material));
+            };
+            createAxis(new THREE.Vector3(1, 0, 0), 0xff0000); createAxis(new THREE.Vector3(0, 1, 0), 0x00ff00); createAxis(new THREE.Vector3(0, 0, 1), 0x0000ff);
+        }
+        function createBasisVectors() { 
+            const origin = new THREE.Vector3(0, 0, 0);
+            scene.add(new THREE.ArrowHelper(i_hat, origin, 1, 0xff0000, 0.2, 0.1)); scene.add(new THREE.ArrowHelper(j_hat, origin, 1, 0x00ff00, 0.2, 0.1)); scene.add(new THREE.ArrowHelper(k_hat, origin, 1, 0x0000ff, 0.2, 0.1));
+        }
+        function createTransformedVectors() {
+            const origin = new THREE.Vector3(0, 0, 0);
+            transformedArrowI = new THREE.ArrowHelper(i_hat, origin, 1, 0xffa500, 0.25, 0.15); transformedArrowJ = new THREE.ArrowHelper(j_hat, origin, 1, 0x00ffff, 0.25, 0.15); transformedArrowK = new THREE.ArrowHelper(k_hat, origin, 1, 0xff00ff, 0.25, 0.15);
+            scene.add(transformedArrowI, transformedArrowJ, transformedArrowK);
+        }
+        
+        function createOctantCubes() {
+            octantCubesGroup = new THREE.Group();
+            const cubeSize = 4;
+            const cubeGeom = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+            // New high-contrast colors
+            const octantColors = ['#ff4136', '#0074d9', '#2ecc40', '#b10dc9', '#ffdc00', '#7fdbff', '#ff851b', '#3d9970'];
+            let colorIndex = 0;
+            const pos = cubeSize / 2;
+            for (let x of [-pos, pos]) {
+                for (let y of [-pos, pos]) {
+                    for (let z of [-pos, pos]) {
+                        const material = new THREE.MeshStandardMaterial({
+                            color: new THREE.Color(octantColors[colorIndex % octantColors.length]),
+                            roughness: 0.8,
+                            transparent: true,
+                            opacity: 0.4, // Lowered opacity
+                            side: THREE.DoubleSide
+                        });
+                        const cube = new THREE.Mesh(cubeGeom, material);
+                        cube.position.set(x, y, z);
+                        octantCubesGroup.add(cube);
+                        colorIndex++;
+                    }
+                }
+            }
+            scene.add(octantCubesGroup);
+        }
+
+        function createVerticesGradient() {
+            verticesGradientGroup = new THREE.Group();
+            const volumeSize = 10;
+            const halfVolume = volumeSize / 2;
+            const sphereGeom = new THREE.SphereGeometry(0.07, 8, 8); 
+
+            for (let i = 0; i <= volumeSize; i++) {
+                for (let j = 0; j <= volumeSize; j++) {
+                    for (let k = 0; k <= volumeSize; k++) {
+                        const x = i - halfVolume;
+                        const y = j - halfVolume;
+                        const z = k - halfVolume;
+
+                        const r = i / volumeSize;
+                        const g = j / volumeSize;
+                        const b = k / volumeSize;
+
+                        const sphereMat = new THREE.MeshBasicMaterial();
+                        sphereMat.color.setRGB(r, g, b);
+                        
+                        const sphere = new THREE.Mesh(sphereGeom, sphereMat);
+                        sphere.position.set(x, y, z);
+                        verticesGradientGroup.add(sphere);
+                    }
+                }
+            }
+            scene.add(verticesGradientGroup);
+            verticesGradientGroup.visible = false; 
+        }
+
+        function createDeterminantBox() {
+            const geometry = new THREE.BoxGeometry(1, 1, 1);
+            const edges = new THREE.EdgesGeometry(geometry);
+            determinantBox = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xffff00 }));
+            determinantBox.visible = false;
+            scene.add(determinantBox);
+        }
+        function createEigenVectors() { eigenVectorsGroup = new THREE.Group(); eigenVectorsGroup.visible = false; scene.add(eigenVectorsGroup); }
+        function createKernelVisuals() { kernelGroup = new THREE.Group(); kernelGroup.visible = false; scene.add(kernelGroup); }
+
+        function rotationAxisAngle(nx, ny, nz, theta){
+            const n = new THREE.Vector3(nx, ny, nz).normalize();
+            const {x, y, z} = n; const c = Math.cos(theta), s = Math.sin(theta), C = 1 - c;
+            return [
+                c + x*x*C,   x*y*C - z*s, x*z*C + y*s,
+                y*x*C + z*s, c + y*y*C,   y*z*C - x*s,
+                z*x*C - y*s, z*y*C + x*s, c + z*z*C
+            ];
+        }
+
+        function householderReflection(nx, ny, nz){
+            const u = new THREE.Vector3(nx, ny, nz).normalize();
+            const {x,y,z} = u;
+            return [1-2*x*x, -2*x*y, -2*x*z,  -2*y*x, 1-2*y*y, -2*y*z,  -2*z*x, -2*z*y, 1-2*z*z];
+        }
+
+        function projectionOntoVector(nx, ny, nz) {
+            const u = new THREE.Vector3(nx, ny, nz).normalize();
+            const {x, y, z} = u;
+            return [x*x, x*y, x*z, y*x, y*y, y*z, z*x, z*y, z*z];
+        }
+
+        function formatNumber(num) {
+            if (Math.abs(num) < 1e-9) return '0.0';
+            if (Math.abs(num - Math.round(num)) < 1e-9) {
+                return Math.round(num).toFixed(1);
+            }
+            const fixed = parseFloat(num.toFixed(4));
+            return fixed.toString();
+        }
+
+        function gcd(a, b) {
+            return b ? gcd(b, a % b) : a;
+        }
+
+        function decimalToFraction(decimal, tolerance = 1.0E-6) {
+            if (Math.abs(decimal - Math.round(decimal)) <= tolerance) {
+                return `${Math.round(decimal)}`;
+            }
+
+            let h1 = 1, h2 = 0;
+            let k1 = 0, k2 = 1;
+            let b = decimal;
+            do {
+                let a = Math.floor(b);
+                let aux = h1; h1 = a * h1 + h2; h2 = aux;
+                aux = k1; k1 = a * k1 + k2; k2 = aux;
+                b = 1 / (b - a);
+            } while (Math.abs(decimal - h1 / k1) > decimal * tolerance && k1 < 1000);
+
+            const commonDivisor = gcd(h1, k1);
+            const num = h1 / commonDivisor;
+            const den = k1 / commonDivisor;
+
+            if (den === 1) return `${num}`;
+            return `${num}/${den}`;
+        }
+        
+        const SYMBOLIC_CONSTANTS = new Map([
+            [Math.sqrt(2), "√2"],
+            [Math.sqrt(3), "√3"],
+            [Math.sqrt(2) / 2, "√2/2"],
+            [Math.sqrt(3) / 2, "√3/2"],
+            [1 / 2, "1/2"],
+        ]);
+
+        function numberToSymbolicString(num, tolerance = 1.0E-6) {
+            if (Math.abs(num) > 10000 || (Math.abs(num) < 0.0001 && num !== 0)) {
+                return num.toExponential(1);
+            }
+            if (Math.abs(num - Math.round(num)) <= tolerance) {
+                return `${Math.round(num)}`;
+            }
+            for (const [value, str] of SYMBOLIC_CONSTANTS.entries()) {
+                if (Math.abs(num - value) <= tolerance) return str;
+                if (Math.abs(num + value) <= tolerance) return `-${str}`;
+            }
+            return decimalToFraction(num);
+        }
+
+
+        function setupUIListeners() {
+            const categorySelect = document.getElementById('preset-category');
+            const presetsSelect = document.getElementById('presets');
+            const mainMatrixInputs = document.querySelectorAll('.main-matrix-input');
+            const customParamsContainer = document.getElementById('custom-params-container');
+            const angleSliderContainer = document.getElementById('angle-slider-container');
+            const vxInput = document.getElementById('vx');
+            const vyInput = document.getElementById('vy');
+            const vzInput = document.getElementById('vz');
+            const angleSlider = document.getElementById('angle-slider');
+            const angleValue = document.getElementById('angle-value');
+
+            const populateTransforms = (category) => {
+                presetsSelect.innerHTML = '';
+                Object.keys(presets[category]).forEach(matrixName => presetsSelect.add(new Option(matrixName, matrixName)));
+            };
+
+            function updateMatrixFromUI() {
+                const category = categorySelect.value;
+                const transformName = presetsSelect.value;
+                const preset = presets[category][transformName];
+
+                if (!preset) return;
+
+                customParamsContainer.style.display = preset.requiresVector ? 'block' : 'none';
+                angleSliderContainer.style.display = preset.requiresAngle ? 'flex' : 'none';
+
+                let matrix;
+
+                if (preset.matrix && preset.matrix.length > 0) {
+                    matrix = preset.matrix;
+                } else if (preset.requiresVector) {
+                    const vx = parseFloat(vxInput.value) || 0;
+                    const vy = parseFloat(vyInput.value) || 0;
+                    const vz = parseFloat(vzInput.value) || 0;
+
+                    if (preset.type === 'rotation') {
+                        const angle = parseFloat(angleSlider.value) * Math.PI / 180;
+                        matrix = rotationAxisAngle(vx, vy, vz, angle);
+                    } else if (preset.type === 'reflection') {
+                        matrix = householderReflection(vx, vy, vz);
+                    } else if (preset.type === 'projection') {
+                        matrix = projectionOntoVector(vx, vy, vz);
+                    }
+                }
+
+                if (matrix) {
+                    ['m00','m01','m02','m10','m11','m12','m20','m21','m22'].forEach((id, i) => {
+                        document.getElementById(id).value = formatNumber(matrix[i]);
+                    });
+                    updateAnalysis();
+                }
+            }
+            
+            categorySelect.addEventListener('change', () => {
+                populateTransforms(categorySelect.value);
+                updateMatrixFromUI();
+            });
+            presetsSelect.addEventListener('change', updateMatrixFromUI);
+            
+            mainMatrixInputs.forEach(input => input.addEventListener('input', () => {
+                const currentPreset = presets[categorySelect.value][presetsSelect.value];
+                if (categorySelect.value !== "Personalizado" && !currentPreset.requiresVector) {
+                    categorySelect.value = "Personalizado";
+                    populateTransforms("Personalizado");
+                }
+                updateAnalysis();
+            }));
+            
+            vxInput.addEventListener('input', updateMatrixFromUI);
+            vyInput.addEventListener('input', updateMatrixFromUI);
+            vzInput.addEventListener('input', updateMatrixFromUI);
+            angleSlider.addEventListener('input', (e) => {
+                angleValue.textContent = `${e.target.value}°`;
+                updateMatrixFromUI();
+            });
+            
+            document.getElementById('t-slider').addEventListener('input', (e) => {
+                animationState.t = parseFloat(e.target.value);
+                document.getElementById('t-value').textContent = animationState.t.toFixed(2);
+                if (animationState.isPlaying) { animationState.isPlaying = false; updatePlayButtonIcon(); }
+            });
+            document.getElementById('play-pause-btn').addEventListener('click', () => {
+                if (animationState.t >= 1) animationState.t = 0;
+                animationState.isPlaying = !animationState.isPlaying;
+                updatePlayButtonIcon();
+            });
+            document.getElementById('loop-btn').addEventListener('click', (e) => {
+                animationState.isLooping = !animationState.isLooping;
+                e.currentTarget.classList.toggle('active', animationState.isLooping);
+            });
+            document.getElementById('speed-slider').addEventListener('input', (e) => {
+                animationState.speed = parseFloat(e.target.value);
+                document.getElementById('speed-value').textContent = `${animationState.speed.toFixed(1)}x`;
+            });
+            document.getElementById('home-btn').addEventListener('click', () => setCameraView('home'));
+            document.getElementById('view-xy-btn').addEventListener('click', () => setCameraView('xy'));
+            document.getElementById('view-xz-btn').addEventListener('click', () => setCameraView('xz'));
+            document.getElementById('view-yz-btn').addEventListener('click', () => setCameraView('yz'));
+            document.getElementById('show-determinant').addEventListener('change', (e) => { determinantBox.visible = e.target.checked; });
+            document.getElementById('show-eigenvectors').addEventListener('change', (e) => { eigenVectorsGroup.visible = e.target.checked; });
+            document.getElementById('show-kernel').addEventListener('change', (e) => { kernelGroup.visible = e.target.checked; });
+            
+            document.getElementById('vis-mode').addEventListener('change', (e) => {
+                const mode = e.target.value;
+                octantCubesGroup.visible = mode === 'cubes';
+                verticesGradientGroup.visible = mode === 'vertices_gradient';
+                
+                if (mode === 'cubes') activeVisGroup = octantCubesGroup;
+                else if (mode === 'vertices_gradient') activeVisGroup = verticesGradientGroup;
+                else activeVisGroup = null;
+            });
+            
+            Object.keys(presets).forEach(groupName => categorySelect.add(new Option(groupName, groupName)));
+            categorySelect.value = "Básicas";
+            populateTransforms("Básicas");
+            updateMatrixFromUI();
+            updatePlayButtonIcon();
+            document.getElementById('loop-btn').innerHTML = `<svg class="w-6 h-6 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 2l4 4-4 4M3 12a9 9 0 019-9h9M7 22l-4-4 4-4M21 12a9 9 0 01-9 9H3"></path></svg>`;
+            document.getElementById('home-btn').innerHTML = `<svg class="w-6 h-6 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path></svg>`;
+        }
+
+        function updatePlayButtonIcon() {
+            const btn = document.getElementById('play-pause-btn');
+            btn.innerHTML = animationState.isPlaying 
+                ? `<svg class="w-6 h-6 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>`
+                : `<svg class="w-6 h-6 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>`;
+        }
+
+        function setCameraView(view) {
+            controls.reset();
+            const dist = 15;
+            switch(view) {
+                case 'xy': camera.position.set(0, 0, dist); break;
+                case 'xz': camera.position.set(0, dist, 0); break;
+                case 'yz': camera.position.set(dist, 0, 0); break;
+                case 'home': camera.position.copy(initialCameraState.position); break;
+            }
+            camera.zoom = initialCameraState.zoom;
+            camera.lookAt(scene.position);
+            camera.updateProjectionMatrix();
+        }
+
+        function getRank(matrix) {
+            const m = matrix.map(row => [...row]);
+            let rank = 0;
+            const rows = 3, cols = 3;
+            let lead = 0;
+            for (let r = 0; r < rows && lead < cols; r++) {
+                let i = r;
+                while (i < rows && Math.abs(m[i][lead]) < 1e-9) i++;
+                if (i < rows) {
+                    [m[i], m[r]] = [m[r], m[i]];
+                    let val = m[r][lead];
+                    for (let j = 0; j < cols; j++) m[r][j] /= val;
+                    for (let i = 0; i < rows; i++) {
+                        if (i !== r) {
+                            val = m[i][lead];
+                            for (let j = 0; j < cols; j++) m[i][j] -= val * m[r][j];
+                        }
+                    }
+                    rank++;
+                    lead++;
+                }
+            }
+            return rank;
+        }
+
+        function updateAnalysis() {
+            const mArray = [];
+            for(let r=0; r<3; r++) for(let c=0; c<3; c++) mArray.push(parseFloat(document.getElementById(`m${r}${c}`).value) || 0);
+            const [m00, m01, m02, m10, m11, m12, m20, m21, m22] = mArray;
+            
+            i_hat_final.set(m00, m10, m20); j_hat_final.set(m01, m11, m21); k_hat_final.set(m02, m12, m22);
+            
+            const matrixForNumeric = [[m00, m01, m02], [m10, m11, m12], [m20, m21, m22]];
+            analysis.rank = getRank(matrixForNumeric);
+            analysis.determinant = numeric.det(matrixForNumeric);
+
+            document.getElementById('rank-value').textContent = analysis.rank;
+            document.getElementById('nullity-value').textContent = 3 - analysis.rank;
+            document.getElementById('determinant-value').textContent = analysis.determinant.toFixed(3);
+            document.getElementById('determinant-desc').textContent = analysis.determinant < 0 ? "(Orientación Invertida)" : "";
+            
+            updateKernelDisplay(matrixForNumeric);
+            updateInverseDisplay(matrixForNumeric);
+            try { analysis.eigen = numeric.eig(matrixForNumeric); } catch (e) { analysis.eigen = null; }
+            updateEigenDisplay();
+            updateEigenVisuals();
+            updateKernelVisuals();
+        }
+
+        function updateKernelDisplay(m) {
+            const { rank } = analysis;
+            let kernelText = "";
+            analysis.kernelBasis = null;
+
+            if (rank === 3) {
+                kernelText = "{ [0, 0, 0] }";
+            } else if (rank === 0) {
+                kernelText = "ℝ³";
+            } else {
+                const row1 = new THREE.Vector3(m[0][0], m[0][1], m[0][2]);
+                const row2 = new THREE.Vector3(m[1][0], m[1][1], m[1][2]);
+                const row3 = new THREE.Vector3(m[2][0], m[2][1], m[2][2]);
+
+                if (rank === 2) {
+                    let basis = new THREE.Vector3();
+                    if (row1.clone().cross(row2).lengthSq() > 1e-9) basis = row1.cross(row2);
+                    else if (row1.clone().cross(row3).lengthSq() > 1e-9) basis = row1.cross(row3);
+                    else basis = row2.cross(row3);
+                    analysis.kernelBasis = [basis.normalize()];
+                    kernelText = `gen({ [${basis.toArray().map(v => v.toFixed(2)).join(', ')}] })`;
+                } else if (rank === 1) {
+                    const r = [row1, row2, row3].find(v => v.lengthSq() > 1e-9);
+                    let u = new THREE.Vector3(0, -r.z, r.y);
+                    if (r.clone().cross(u).lengthSq() < 1e-9) {
+                        u = new THREE.Vector3(-r.y, r.x, 0);
+                    }
+                    const v = r.clone().cross(u);
+                    analysis.kernelBasis = [u.normalize(), v.normalize()];
+                    kernelText = `gen({ [${u.toArray().map(c => c.toFixed(2)).join(', ')}], [${v.toArray().map(c => c.toFixed(2)).join(', ')}] })`;
+                }
+            }
+            document.getElementById('kernel-value').textContent = kernelText;
+        }
+
+        function updateInverseDisplay(m) {
+            const container = document.getElementById('inverse-container');
+            if (Math.abs(analysis.determinant) < 1.0E-9) {
+                container.innerHTML = `<div class="font-bold text-gray-400">Inversa (<span class="text-cyan-400">A</span>⁻¹): <span class="text-gray-500 ml-2">No es invertible</span></div>`;
+                return;
+            }
+            const invM = numeric.inv(m);
+            const symbolicElements = invM.flat().map(e => `<span class="text-white">${numberToSymbolicString(e)}</span>`);
+
+            container.innerHTML = `
+                <div class="font-bold text-gray-400">Inversa (<span class="text-cyan-400">A</span>⁻¹):</div>
+                <div class="grid grid-cols-3 gap-x-2 gap-y-1 text-center bg-gray-900/50 p-2 rounded-md mt-1">
+                    ${symbolicElements.join('')}
+                </div>`;
+        }
+
+        function updateEigenDisplay() {
+            const container = document.getElementById('eigen-analysis');
+            if (!analysis.eigen || !analysis.eigen.E) {
+                container.innerHTML = '<div class="text-gray-500">No se pudieron calcular.</div>'; return;
+            }
+            let html = '<div class="font-bold text-gray-400">Valores Propios (λ) y Vectores Propios (v&#x20D7;):</div>';
+            const λx = analysis.eigen.lambda.x;
+            const λy = analysis.eigen.lambda.y;
+            const E = analysis.eigen.E.x;
+            let realEigenCount = 0;
+
+            for (let i = 0; i < λx.length; i++) {
+                if (!λy || Math.abs(λy[i]) < 1e-9) {
+                    realEigenCount++;
+                    const lambda = λx[i];
+                    const vector = [E[0][i], E[1][i], E[2][i]];
+                    html += `<div class="mt-1"><span class="text-white">λ<sub>${i+1}</sub> = ${lambda.toFixed(3)}</span><span class="text-yellow-400 ml-2">v&#x20D7;<sub>${i+1}</sub> = [${vector.map(v => v.toFixed(2)).join(', ')}]</span></div>`;
+                }
+            }
+            if (realEigenCount === 0) { html += '<div class="text-gray-500 mt-1">No hay valores propios reales.</div>'; }
+            container.innerHTML = html;
+        }
+
+        function updateEigenVisuals() {
+            eigenVectorsGroup.clear();
+            if (!analysis.eigen || !analysis.eigen.E) return;
+            const λx = analysis.eigen.lambda.x;
+            const λy = analysis.eigen.lambda.y;
+            const E = analysis.eigen.E.x;
+            for (let i = 0; i < λx.length; i++) {
+                if (!λy || Math.abs(λy[i]) < 1e-9) {
+                    const vec = new THREE.Vector3(E[0][i], E[1][i], E[2][i]).normalize();
+                    for(let s = -15; s <= 15; s+=1.5) {
+                        if (Math.abs(s) < 0.1) continue;
+                        eigenVectorsGroup.add(new THREE.ArrowHelper(vec, vec.clone().multiplyScalar(s), 1, 0xffff00, 0.3, 0.2));
+                    }
+                }
+            }
+        }
+        
+        function updateKernelVisuals() {
+            kernelGroup.clear();
+            const { rank, kernelBasis } = analysis;
+            if (!kernelBasis) return;
+
+            if (rank === 2) {
+                const vec = kernelBasis[0];
+                const points = [vec.clone().multiplyScalar(-20), vec.clone().multiplyScalar(20)];
+                const lineGeom = new THREE.BufferGeometry().setFromPoints(points);
+                kernelGroup.add(new THREE.Line(lineGeom, new THREE.LineBasicMaterial({color: 0xa855f7, linewidth: 3})));
+            } else if (rank === 1) {
+                const normal = kernelBasis[0].clone().cross(kernelBasis[1]).normalize();
+                const planeGeom = new THREE.PlaneGeometry(30, 30);
+                const plane = new THREE.Mesh(planeGeom, new THREE.MeshStandardMaterial({ color: 0xa855f7, side: THREE.DoubleSide, transparent: true, opacity: 0.4 }));
+                plane.lookAt(normal);
+                kernelGroup.add(plane);
+            }
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('canvas-container');
+            const aspect = container.clientWidth / container.clientHeight;
+            const frustumSize = 18;
+            camera.left = frustumSize * aspect / -2; camera.right = frustumSize * aspect / 2;
+            camera.top = frustumSize / 2; camera.bottom = frustumSize / -2;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        function animate(currentTime) {
+            requestAnimationFrame(animate);
+            controls.update();
+            if (animationState.isPlaying) {
+                const deltaTime = (currentTime - (animationState.lastTime || currentTime)) / 1000;
+                animationState.t += deltaTime * animationState.speed * 0.5;
+                if (animationState.t >= 1) {
+                    animationState.t = animationState.isLooping ? 0 : 1;
+                    if (!animationState.isLooping) { animationState.isPlaying = false; updatePlayButtonIcon(); }
+                }
+                document.getElementById('t-slider').value = animationState.t;
+                document.getElementById('t-value').textContent = animationState.t.toFixed(2);
+            }
+            animationState.lastTime = currentTime;
+            
+            if (Math.abs(animationState.t - animationState.lastT) < 1e-6) {
+                renderer.render(scene, camera);
+                return;
+            }
+            animationState.lastT = animationState.t;
+            
+            const t = animationState.t;
+            
+            i_hat_t.lerpVectors(i_hat, i_hat_final, t);
+            j_hat_t.lerpVectors(j_hat, j_hat_final, t);
+            k_hat_t.lerpVectors(k_hat, k_hat_final, t);
+            
+            transformedArrowI.setDirection(i_hat_t.clone().normalize());
+            transformedArrowI.setLength(i_hat_t.length() || 1e-9, 0.25, 0.15);
+            transformedArrowJ.setDirection(j_hat_t.clone().normalize());
+            transformedArrowJ.setLength(j_hat_t.length() || 1e-9, 0.25, 0.15);
+            transformedArrowK.setDirection(k_hat_t.clone().normalize());
+            transformedArrowK.setLength(k_hat_t.length() || 1e-9, 0.25, 0.15);
+            
+            transformMatrix4.makeBasis(i_hat_t, j_hat_t, k_hat_t);
+            
+            if (activeVisGroup) {
+                activeVisGroup.matrix.copy(transformMatrix4);
+                activeVisGroup.matrixAutoUpdate = false;
+            }
+
+            if (determinantBox.visible) {
+                determinantBox.matrix.copy(transformMatrix4);
+                determinantBox.matrixAutoUpdate = false;
+            }
+            
+            imagePlane.visible = false;
+            imageLine.visible = false;
+            imagePoint.visible = false;
+
+            if (animationState.t >= 1) {
+                if (analysis.rank === 2) {
+                    const vectors = [i_hat_final, j_hat_final, k_hat_final].filter(v => v.lengthSq() > 1e-9);
+                    let v1, v2;
+                    if (vectors.length >= 2) {
+                        v1 = vectors[0].clone();
+                        v2 = vectors.find(v => v.clone().cross(v1).lengthSq() > 1e-9);
+                    }
+
+                    if (v1 && v2) {
+                        const normal = v1.clone().cross(v2).normalize();
+                        imagePlane.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+                        imagePlane.visible = true;
+                    }
+                } else if (analysis.rank === 1) {
+                    const basisVector = [i_hat_final, j_hat_final, k_hat_final].find(v => v.lengthSq() > 1e-9);
+                    if (basisVector) {
+                        imageLine.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), basisVector.clone().normalize());
+                        imageLine.visible = true;
+                    }
+                } else if (analysis.rank === 0) {
+                    imagePoint.visible = true;
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        init();
+    </script>
+</body>
+</html>
+

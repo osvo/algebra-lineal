@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador de Composición de Transformaciones</title>
+    <!-- Tailwind CSS para un diseño moderno y responsivo -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React y ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel para compilar JSX en el navegador -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        /* Estilo para el cursor al interactuar con el canvas */
+        canvas:active { cursor: grabbing; }
+        canvas { cursor: grab; }
+        /* Estilo para la flecha sobre los vectores */
+        .vector-arrow { position: relative; }
+        .vector-arrow::after {
+            content: '→';
+            position: absolute;
+            top: -0.8em;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 1em;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white font-sans flex items-center justify-center min-h-screen p-4">
+    <div id="app"></div>
+
+    <script type="text/babel">
+        // ===================================================================================
+        // CONSTANTES Y FUNCIONES MATEMÁTICAS PURAS
+        // ===================================================================================
+
+        const TOLERANCE = 1e-9;
+
+        function drawArrow(ctx, x1, y1, x2, y2, s) {
+            const a = Math.atan2(y2 - y1, x2 - x1);
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x2, y2);
+            ctx.lineTo(x2 - s * Math.cos(a - Math.PI / 6), y2 - s * Math.sin(a - Math.PI / 6));
+            ctx.lineTo(x2 - s * Math.cos(a + Math.PI / 6), y2 - s * Math.sin(a + Math.PI / 6));
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function drawCrosshair(ctx, x, y, s) {
+            ctx.beginPath();
+            ctx.arc(x, y, s, 0, 2 * Math.PI, false);
+            ctx.moveTo(x, y + s / 2); ctx.lineTo(x, y + s * 1.5);
+            ctx.moveTo(x, y - s / 2); ctx.lineTo(x, y - s * 1.5);
+            ctx.moveTo(x + s / 2, y); ctx.lineTo(x + s * 1.5, y);
+            ctx.moveTo(x - s / 2, y); ctx.lineTo(x - s * 1.5, y);
+            ctx.stroke();
+        }
+        
+        function multiplyMatrixVector(matrix, vector) {
+            const [a, b] = matrix[0];
+            const [c, d] = matrix[1];
+            const [x, y] = vector;
+            return [a * x + b * y, c * x + d * y];
+        }
+        
+        function multiplyMatrices(m2, m1) {
+            const [[a, b], [c, d]] = m1;
+            const [[e, f], [g, h]] = m2;
+            return [[e*a + f*c, e*b + f*d], [g*a + h*c, g*b + h*d]];
+        }
+
+        // ===================================================================================
+        // HOOKS Y COMPONENTES
+        // ===================================================================================
+        
+        function useAnimation(initialState = {}) {
+            const { initialT = 0, initialIsPlaying = false, initialIsLooping = false, initialSpeed = 1, maxT = 2 } = initialState;
+            const [t, setT] = React.useState(initialT);
+            const [isPlaying, setIsPlaying] = React.useState(initialIsPlaying);
+            const [isLooping, setIsLooping] = React.useState(initialIsLooping);
+            const [animationSpeed, setAnimationSpeed] = React.useState(initialSpeed);
+            const animationFrameId = React.useRef(null);
+            const lastTimeRef = React.useRef(null);
+            const tRef = React.useRef(t);
+            tRef.current = t;
+
+            React.useEffect(() => {
+                if (!isPlaying) {
+                    cancelAnimationFrame(animationFrameId.current);
+                    return;
+                }
+                const animate = (currentTime) => {
+                    if (lastTimeRef.current === null) lastTimeRef.current = currentTime;
+                    const deltaTime = currentTime - lastTimeRef.current;
+                    lastTimeRef.current = currentTime;
+                    setT(prevT => Math.min(maxT, prevT + (deltaTime / 1000) * (animationSpeed * 0.5)));
+                    animationFrameId.current = requestAnimationFrame(animate);
+                };
+                lastTimeRef.current = null;
+                animationFrameId.current = requestAnimationFrame(animate);
+                return () => cancelAnimationFrame(animationFrameId.current);
+            }, [isPlaying, animationSpeed, maxT]);
+
+            React.useEffect(() => {
+                if (t >= maxT) {
+                    if (isLooping) setT(0);
+                    else setIsPlaying(false);
+                }
+            }, [t, isLooping, maxT]);
+
+            const handlePlayPause = React.useCallback(() => {
+                if (tRef.current >= maxT) {
+                    setT(0);
+                    setIsPlaying(true);
+                } else {
+                    setIsPlaying(prev => !prev);
+                }
+            }, [maxT]);
+            
+            const handleLoopToggle = React.useCallback(() => setIsLooping(prev => !prev), []);
+            const handleTSlider = React.useCallback((e) => setT(parseFloat(e.target.value)), []);
+            const handleSpeedSlider = React.useCallback((e) => setAnimationSpeed(parseFloat(e.target.value)), []);
+            const handleTMouseDown = React.useCallback(() => setIsPlaying(false), []);
+
+            return { t, setT, isPlaying, setIsPlaying, isLooping, animationSpeed, handlePlayPause, handleLoopToggle, handleTSlider, handleSpeedSlider, handleTMouseDown };
+        }
+
+        const CanvasComponent = React.memo(function CanvasComponent({ t, scale, vectors, onVectorsChange, compositionState }) {
+            const canvasRef = React.useRef(null);
+            const [dragTarget, setDragTarget] = React.useState(null);
+
+            const getMousePos = React.useCallback((event) => {
+                const canvas = canvasRef.current;
+                if (!canvas) return { x: 0, y: 0 };
+                const rect = canvas.getBoundingClientRect();
+                const xRatio = scale * rect.width / canvas.width;
+                const yRatio = -scale * rect.height / canvas.height;
+                const x = ((event.clientX - rect.left) - rect.width / 2) / xRatio;
+                const y = ((event.clientY - rect.top) - rect.height / 2) / yRatio;
+                return { x, y };
+            }, [scale]);
+
+            const handlePointerDown = React.useCallback((event) => {
+                const pos = getMousePos(event);
+                const currentVectors = compositionState.activeMatrix === 'M1' ? compositionState.vectorsM1 : compositionState.vectorsM2;
+                const d1 = Math.hypot(pos.x - currentVectors.iHat.x, pos.y - currentVectors.iHat.y);
+                const d2 = Math.hypot(pos.x - currentVectors.jHat.x, pos.y - currentVectors.jHat.y);
+                const d3 = Math.hypot(pos.x - vectors.vector.x, pos.y - vectors.vector.y);
+
+                const minDist = Math.min(d1, d2, d3);
+                if (minDist < 0.5) {
+                    if (minDist === d1) setDragTarget('iHat');
+                    else if (minDist === d2) setDragTarget('jHat');
+                    else if (minDist === d3) setDragTarget('vector');
+                    event.target.setPointerCapture(event.pointerId);
+                }
+            }, [getMousePos, vectors, compositionState]);
+
+            const handlePointerUp = React.useCallback(() => {
+                setDragTarget(null);
+            }, []);
+
+            const handlePointerMove = React.useCallback((event) => {
+                if (!dragTarget) return;
+                let pos = getMousePos(event);
+                const SNAP_MARGIN = 0.1;
+                const xSnap = Math.round(pos.x * 2) / 2;
+                const ySnap = Math.round(pos.y * 2) / 2;
+                if (Math.abs(xSnap - pos.x) < SNAP_MARGIN) pos.x = xSnap;
+                if (Math.abs(ySnap - pos.y) < SNAP_MARGIN) pos.y = ySnap;
+                onVectorsChange(dragTarget, pos);
+            }, [dragTarget, getMousePos, onVectorsChange]);
+            
+            React.useEffect(() => {
+                const canvas = canvasRef.current;
+                const ctx = canvas.getContext('2d');
+                const t_num = parseFloat(t);
+
+                const transformPoint = (x, y) => {
+                    const { m1, m2, order } = compositionState;
+                    const firstM = order === 'M2_after_M1' ? m1 : m2;
+                    const secondM = order === 'M2_after_M1' ? m2 : m1;
+                    
+                    if (t_num <= 1) {
+                        const mt = [[(1 - t_num) + t_num * firstM[0][0], t_num * firstM[0][1]], [t_num * firstM[1][0], (1 - t_num) + t_num * firstM[1][1]]];
+                        return multiplyMatrixVector(mt, [x, y]);
+                    } else {
+                        const s = t_num - 1;
+                        const intermediatePoint = multiplyMatrixVector(firstM, [x, y]);
+                        const finalPoint = multiplyMatrixVector(multiplyMatrices(secondM, firstM), [x, y]);
+                        return [(1 - s) * intermediatePoint[0] + s * finalPoint[0], (1 - s) * intermediatePoint[1] + s * finalPoint[1]];
+                    }
+                };
+                
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.save();
+                ctx.translate(canvas.width / 2, canvas.height / 2);
+                ctx.scale(scale, -scale);
+                ctx.lineWidth = 0.04;
+
+                // Dibujar rejilla
+                ctx.strokeStyle = '#4a5568'; ctx.lineWidth = 0.02;
+                for (let i = -20; i <= 20; i++) {
+                    ctx.beginPath(); ctx.moveTo(i, -20); ctx.lineTo(i, 20); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(-20, i); ctx.lineTo(20, i); ctx.stroke();
+                }
+                
+                ctx.strokeStyle = '#1fabc3';
+                for (let i = -20; i <= 20; i++) {
+                    ctx.beginPath(); ctx.moveTo(...transformPoint(i, -20));
+                    for(let j = -19; j <= 20; j++) { ctx.lineTo(...transformPoint(i, j)); }
+                    ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(...transformPoint(-20, i));
+                    for(let j = -19; j <= 20; j++) { ctx.lineTo(...transformPoint(j, i)); }
+                    ctx.stroke();
+                }
+                
+                // Dibujar vectores base y vector E/S
+                ctx.globalAlpha = 0.5;
+                ctx.strokeStyle = '#a0aec0'; ctx.fillStyle = '#a0aec0';
+                drawArrow(ctx, 0, 0, 1, 0, 0.2);
+                drawArrow(ctx, 0, 0, 0, 1, 0.2);
+                ctx.globalAlpha = 1.0;
+
+                const iHatTransformed = transformPoint(1, 0);
+                const jHatTransformed = transformPoint(0, 1);
+                ctx.strokeStyle = '#8cbe63'; ctx.fillStyle = '#8cbe63';
+                drawArrow(ctx, 0, 0, ...iHatTransformed, 0.2);
+                ctx.strokeStyle = '#ff7c5c'; ctx.fillStyle = '#ff7c5c';
+                drawArrow(ctx, 0, 0, ...jHatTransformed, 0.2);
+
+                const vectorTransformed = transformPoint(vectors.vector.x, vectors.vector.y);
+                ctx.strokeStyle = '#fdfe00'; ctx.fillStyle = '#fdfe00';
+                drawArrow(ctx, 0, 0, ...vectorTransformed, 0.2);
+                drawCrosshair(ctx, vectors.vector.x, vectors.vector.y, 0.16);
+                
+                const currentVectors = compositionState.activeMatrix === 'M1' ? compositionState.vectorsM1 : compositionState.vectorsM2;
+                const iHatColor = '#8cbe63';
+                const jHatColor = '#ff7c5c';
+
+                ctx.strokeStyle = iHatColor; drawCrosshair(ctx, currentVectors.iHat.x, currentVectors.iHat.y, 0.16);
+                ctx.strokeStyle = jHatColor; drawCrosshair(ctx, currentVectors.jHat.x, currentVectors.jHat.y, 0.16);
+
+                ctx.restore();
+            }, [t, vectors, scale, compositionState]);
+            
+            return <canvas ref={canvasRef} width={1140} height={640} className="w-full bg-gray-800 rounded-md shadow-lg" onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} />;
+        });
+        
+        const AnimationControls = React.memo(({ animationState, handlers, maxT }) => {
+            const PlayIcon = () => <svg className="w-6 h-6 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>;
+            const PauseIcon = () => <svg className="w-6 h-6 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>;
+            const LoopIcon = () => <svg className="w-6 h-6 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 2l4 4-4 4M3 12a9 9 0 019-9h9M7 22l-4-4 4-4M21 12a9 9 0 01-9 9H3"></path></svg>;
+            return (
+                <div className="grid grid-cols-1 md:grid-cols-[auto_1fr_1fr] items-center gap-x-6 gap-y-4 p-2 rounded-md bg-gray-900/50">
+                    <div className="flex items-center justify-center md:justify-start gap-4">
+                        <button onClick={handlers.onPlayPause} className="p-2 rounded-full hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-cyan-400">{animationState.isPlaying ? <PauseIcon /> : <PlayIcon />}</button>
+                        <button onClick={handlers.onLoopToggle} className={`p-2 rounded-full hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-cyan-400 ${animationState.isLooping ? 'text-cyan-400' : ''}`}><LoopIcon /></button>
+                    </div>
+                    <div className="flex items-center gap-2 w-full">
+                        <label>t:</label>
+                        <input type="range" min="0" max={maxT} step="0.01" value={animationState.t} onMouseDown={handlers.onTMouseDown} onChange={handlers.onTSlider} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
+                        <span className="text-cyan-400 w-12 text-center">{Number(animationState.t).toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 w-full">
+                        <label>Velocidad:</label>
+                        <input type="range" min="0.25" max="4" step="0.25" value={animationState.animationSpeed} onChange={handlers.onSpeedSlider} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
+                        <span className="text-cyan-400 w-12 text-center">{animationState.animationSpeed}x</span>
+                    </div>
+                </div>
+            );
+        });
+
+        const CompositionControls = React.memo(({ activeMatrix, onSetActive, onSwapOrder }) => {
+            return (
+                <div className="p-4 bg-gray-800/50 rounded-lg border border-gray-700 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex gap-2">
+                        <span className="font-semibold self-center">Editar:</span>
+                        <button onClick={() => onSetActive('M1')} className={`px-3 py-1 rounded-md text-sm font-bold transition-colors ${activeMatrix === 'M1' ? 'bg-cyan-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}>M₁</button>
+                        <button onClick={() => onSetActive('M2')} className={`px-3 py-1 rounded-md text-sm font-bold transition-colors ${activeMatrix === 'M2' ? 'bg-cyan-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}>M₂</button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                         <span className="font-semibold">Orden de Aplicación:</span>
+                        <button onClick={onSwapOrder} className="p-2 rounded-full hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-cyan-400" title="Invertir Orden">
+                            <svg className="w-6 h-6 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+                        </button>
+                    </div>
+                </div>
+            );
+        });
+
+        const CompositionDisplay = React.memo(({ compositionState }) => {
+            const { vectorsM1, vectorsM2, product, order, activeMatrix } = compositionState;
+            const FormattedNumber = ({ value, colorClass }) => {
+                const [integer, fraction] = value.toFixed(2).split('.');
+                return <div className={`grid grid-cols-[1fr_auto_1fr] items-center font-mono text-md ${colorClass}`}><span className="text-right">{integer}</span><span>.</span><span className="text-left">{fraction}</span></div>;
+            };
+            const Bracket = ({ side }) => <div className={`w-2 h-16 border-gray-500 ${side === 'left' ? 'border-l-2 border-t-2 border-b-2 rounded-l-md' : 'border-r-2 border-t-2 border-b-2 rounded-r-md'}`}></div>;
+            const Matrix = ({ m, colors, label }) => (
+                <div className="flex flex-col items-center gap-1">
+                    <div className={`text-xl font-bold italic ${colors[2]}`}>{label}</div>
+                    <div className="flex items-center gap-2">
+                        <Bracket side="left" />
+                        <div className="flex items-center gap-4">
+                            <div className="flex flex-col justify-center gap-2"><FormattedNumber value={m[0][0]} colorClass={colors[0]} /><FormattedNumber value={m[1][0]} colorClass={colors[0]} /></div>
+                            <div className="flex flex-col justify-center gap-2"><FormattedNumber value={m[0][1]} colorClass={colors[1]} /><FormattedNumber value={m[1][1]} colorClass={colors[1]} /></div>
+                        </div>
+                        <Bracket side="right" />
+                    </div>
+                </div>
+            );
+            
+            const m1 = [[vectorsM1.iHat.x, vectorsM1.jHat.x], [vectorsM1.iHat.y, vectorsM1.jHat.y]];
+            const m2 = [[vectorsM2.iHat.x, vectorsM2.jHat.x], [vectorsM2.iHat.y, vectorsM2.jHat.y]];
+
+            const m1Colors = activeMatrix === 'M1' ? ['text-[#8cbe63]', 'text-[#ff7c5c]', 'text-cyan-400'] : ['text-gray-500', 'text-gray-500', 'text-gray-500'];
+            const m2Colors = activeMatrix === 'M2' ? ['text-[#8cbe63]', 'text-[#ff7c5c]', 'text-cyan-400'] : ['text-gray-500', 'text-gray-500', 'text-gray-500'];
+
+            const firstM = order === 'M2_after_M1' ? m2 : m1;
+            const secondM = order === 'M2_after_M1' ? m1 : m2;
+            const firstLabel = order === 'M2_after_M1' ? 'M₂' : 'M₁';
+            const secondLabel = order === 'M2_after_M1' ? 'M₁' : 'M₂';
+            const firstColors = order === 'M2_after_M1' ? m2Colors : m1Colors;
+            const secondColors = order === 'M2_after_M1' ? m1Colors : m2Colors;
+
+            return (
+                 <div className="p-4 bg-gray-800/50 rounded-lg border border-gray-700 flex items-center justify-center gap-4 flex-wrap">
+                    <Matrix m={firstM} colors={firstColors} label={firstLabel} />
+                    <div className="text-2xl font-bold">·</div>
+                    <Matrix m={secondM} colors={secondColors} label={secondLabel} />
+                    <div className="text-2xl font-bold">=</div>
+                    <Matrix m={product} colors={['text-cyan-400', 'text-cyan-400', 'text-cyan-400']} label={order === 'M2_after_M1' ? 'M₂M₁' : 'M₁M₂'} />
+                 </div>
+            );
+        });
+
+        // ===================================================================================
+        // APP PRINCIPAL
+        // ===================================================================================
+
+        function App() {
+            const { t, setT, isPlaying, setIsPlaying, ...animation } = useAnimation({ maxT: 2 });
+            
+            const [vectors, setVectors] = React.useState({ vector: { x: 1, y: 1 } });
+            
+            const [compositionState, setCompositionState] = React.useState({
+                vectorsM1: { iHat: { x: 0, y: 1 }, jHat: { x: -1, y: 0 } }, // Rotación 90
+                vectorsM2: { iHat: { x: 1, y: 1 }, jHat: { x: 0, y: 1 } }, // Cizalla
+                activeMatrix: 'M1',
+                order: 'M2_after_M1',
+            });
+
+            const compositionAnalysis = React.useMemo(() => {
+                const { vectorsM1, vectorsM2, order } = compositionState;
+                const m1 = [[vectorsM1.iHat.x, vectorsM1.jHat.x], [vectorsM1.iHat.y, vectorsM1.jHat.y]];
+                const m2 = [[vectorsM2.iHat.x, vectorsM2.jHat.x], [vectorsM2.iHat.y, vectorsM2.jHat.y]];
+                const product = order === 'M2_after_M1' ? multiplyMatrices(m2, m1) : multiplyMatrices(m1, m2);
+                return { m1, m2, product, order, ...compositionState };
+            }, [compositionState]);
+            
+            const handleCompositionReset = React.useCallback(() => {
+                 setCompositionState({
+                    vectorsM1: { iHat: { x: 0, y: 1 }, jHat: { x: -1, y: 0 } },
+                    vectorsM2: { iHat: { x: 1, y: 1 }, jHat: { x: 0, y: 1 } },
+                    activeMatrix: 'M1',
+                    order: 'M2_after_M1',
+                });
+                setT(0);
+                setIsPlaying(false);
+            }, [setT, setIsPlaying]);
+
+            const handleVectorChange = React.useCallback((target, pos) => {
+                if (target === 'vector') {
+                    setVectors(prev => ({ ...prev, [target]: pos }));
+                } else {
+                    const key = compositionState.activeMatrix === 'M1' ? 'vectorsM1' : 'vectorsM2';
+                    setCompositionState(prev => ({
+                        ...prev,
+                        [key]: { ...prev[key], [target]: pos }
+                    }));
+                }
+            }, [compositionState.activeMatrix]);
+
+            return (
+                <div className="w-full max-w-6xl mx-auto flex flex-col gap-4">
+                    <h1 className="text-3xl font-bold text-center text-cyan-300">Visualizador de Composición de Transformaciones</h1>
+                    
+                    <div className="bg-gray-800/50 p-4 rounded-lg shadow-2xl border border-gray-700">
+                        <div className="relative">
+                            <CanvasComponent t={t} scale={60} vectors={vectors} onVectorsChange={handleVectorChange} compositionState={compositionAnalysis} />
+                            <button onClick={handleCompositionReset} className="absolute top-3 right-3 p-2 rounded-full bg-gray-900/50 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-cyan-400" title="Resetear Vectores">
+                                <svg className="w-6 h-6 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path></svg>
+                            </button>
+                        </div>
+                        <div className="mt-4 flex flex-col gap-4">
+                             <AnimationControls animationState={{ t, isPlaying, ...animation }} handlers={{ onPlayPause: animation.handlePlayPause, onLoopToggle: animation.handleLoopToggle, onTSlider: animation.handleTSlider, onSpeedSlider: animation.handleSpeedSlider, onTMouseDown: animation.handleTMouseDown }} maxT={2} />
+                        </div>
+                    </div>
+                    {compositionAnalysis && <>
+                        <CompositionControls activeMatrix={compositionState.activeMatrix} order={compositionState.order} onSetActive={(m) => setCompositionState(s => ({...s, activeMatrix: m}))} onSwapOrder={() => setCompositionState(s => ({...s, order: s.order === 'M2_after_M1' ? 'M1_after_M2' : 'M2_after_M1'}))} />
+                        <CompositionDisplay compositionState={compositionAnalysis} />
+                    </>}
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('app')).render(<App />);
+    </script>
+</body>
+</html>

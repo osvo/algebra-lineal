@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador de transformaciones lineales en dos dimensiones</title>
+    <!-- Tailwind CSS para un diseño moderno y responsivo -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React y ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel para compilar JSX en el navegador -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        /* Estilo para el cursor al interactuar con el canvas */
+        canvas:active { cursor: grabbing; }
+        canvas { cursor: grab; }
+        /* Estilo para la flecha sobre los vectores */
+        .vector-arrow { position: relative; }
+        .vector-arrow::after {
+            content: '→';
+            position: absolute;
+            top: -0.8em;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 1em;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white font-sans flex items-center justify-center min-h-screen p-4">
+    <div id="app"></div>
+
+    <script type="text/babel">
+        // ===================================================================================
+        // CONSTANTES Y FUNCIONES MATEMÁTICAS PURAS
+        // ===================================================================================
+
+        const TOLERANCE = 1e-9; // Tolerancia para comparaciones de punto flotante
+
+        /** Máximo común divisor (versión iterativa y segura) */
+        function gcd(a, b) {
+            a = Math.round(Math.abs(a));
+            b = Math.round(Math.abs(b));
+            while (b) {
+                let temp = b;
+                b = a % b;
+                a = temp;
+            }
+            return a;
+        }
+
+        /**
+         * Clase para representar y operar con números racionales (fracciones).
+         * Esto evita errores de precisión de punto flotante.
+         */
+        class Fraction {
+            constructor(numerator, denominator = 1) {
+                if (denominator === 0) throw new Error("Denominator cannot be zero.");
+                
+                if (!Number.isInteger(numerator) || !Number.isInteger(denominator)) {
+                    const tolerance = 1.0E-9;
+                    let h1 = 1, h2 = 0, k1 = 0, k2 = 1;
+                    let b = numerator;
+                    do {
+                        let a = Math.floor(b);
+                        let aux = h1; h1 = a * h1 + h2; h2 = aux;
+                        aux = k1; k1 = a * k1 + k2; k2 = aux;
+                        b = 1 / (b - a);
+                    } while (Math.abs(numerator - h1 / k1) > Math.abs(numerator) * tolerance && isFinite(b));
+                    this.num = h1;
+                    this.den = k1;
+                } else {
+                    this.num = numerator;
+                    this.den = denominator;
+                }
+                this.simplify();
+            }
+
+            simplify() {
+                const commonDivisor = gcd(this.num, this.den);
+                this.num /= commonDivisor;
+                this.den /= commonDivisor;
+                if (this.den < 0) {
+                    this.num *= -1;
+                    this.den *= -1;
+                }
+            }
+            
+            mul(other) { return new Fraction(this.num * other.num, this.den * other.den); }
+            sub(other) { return new Fraction(this.num * other.den - other.num * this.den, this.den * other.den); }
+            reciprocal() { return new Fraction(this.den, this.num); }
+            toFloat() { return this.num / this.den; }
+            toString() { return this.den === 1 ? `${this.num}` : `${this.num}/${this.den}`; }
+        }
+
+        /** Objeto auxiliar para operaciones con números complejos. */
+        const C = {
+            sub: (z1, z2) => ({ re: z1.re - z2.re, im: z1.im - z2.im }),
+            toString: (z, precision = 2) => {
+                if (!z || typeof z.re === 'undefined' || typeof z.im === 'undefined') return 'N/A';
+                const imAbs = Math.abs(z.im);
+                if (imAbs < TOLERANCE) return z.re.toFixed(precision);
+                const reAbs = Math.abs(z.re);
+                const sign = z.im > 0 ? '+' : '-';
+                if (reAbs < TOLERANCE) return `${z.im.toFixed(precision)}i`;
+                return `${z.re.toFixed(precision)} ${sign} ${imAbs.toFixed(precision)}i`;
+            }
+        };
+
+        /** Dibuja una flecha en el canvas. Si la longitud es casi cero, dibuja un punto. */
+        function drawArrow(ctx, x1, y1, x2, y2, s) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const length = Math.hypot(dx, dy);
+
+            if (length < 0.01) {
+                ctx.beginPath();
+                ctx.arc(x1, y1, s / 2, 0, 2 * Math.PI);
+                ctx.fill();
+                return;
+            }
+
+            const a = Math.atan2(dy, dx);
+            ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x2, y2);
+            ctx.lineTo(x2 - s * Math.cos(a - Math.PI / 6), y2 - s * Math.sin(a - Math.PI / 6));
+            ctx.lineTo(x2 - s * Math.cos(a + Math.PI / 6), y2 - s * Math.sin(a + Math.PI / 6));
+            ctx.closePath(); ctx.fill();
+        }
+
+        /** Dibuja una cruz de referencia en el canvas */
+        function drawCrosshair(ctx, x, y, s) {
+            ctx.beginPath(); ctx.arc(x, y, s, 0, 2 * Math.PI, false);
+            ctx.moveTo(x, y + s / 2); ctx.lineTo(x, y + s * 1.5); ctx.moveTo(x, y - s / 2); ctx.lineTo(x, y - s * 1.5);
+            ctx.moveTo(x + s / 2, y); ctx.lineTo(x + s * 1.5, y); ctx.moveTo(x - s / 2, y); ctx.lineTo(x - s * 1.5, y);
+            ctx.stroke();
+        }
+        
+        /** Multiplica una matriz 2x2 por un vector 2D */
+        function multiplyMatrixVector(matrix, vector) {
+            const [a, b] = matrix[0]; const [c, d] = matrix[1]; const [x, y] = vector;
+            return [a * x + b * y, c * x + d * y];
+        }
+
+        /** Calcula el determinante de una matriz 2x2 */
+        function determinant(matrix) {
+            return matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0];
+        }
+
+        /** Calcula la inversa de una matriz 2x2 usando Fracciones para precisión */
+        function getInverseMatrix(matrix) {
+            const a = new Fraction(matrix[0][0]); const b = new Fraction(matrix[0][1]);
+            const c = new Fraction(matrix[1][0]); const d = new Fraction(matrix[1][1]);
+            const det = a.mul(d).sub(b.mul(c));
+            if (Math.abs(det.toFloat()) < TOLERANCE) return null;
+            const oneOverDet = det.reciprocal();
+            return [
+                [d.mul(oneOverDet), (new Fraction(-1)).mul(b).mul(oneOverDet)],
+                [(new Fraction(-1)).mul(c).mul(oneOverDet), a.mul(oneOverDet)]
+            ];
+        }
+
+        /** Intenta simplificar un vector a una representación canónica con enteros pequeños */
+        function simplifyVector(vector) {
+            const [x, y] = vector;
+            if (Math.abs(x) < TOLERANCE && Math.abs(y) < TOLERANCE) return [0, 0];
+            const maxAbs = Math.max(Math.abs(x), Math.abs(y));
+            const normX = x / maxAbs; const normY = y / maxAbs;
+            let simplified = [parseFloat(x.toFixed(2)), parseFloat(y.toFixed(2))];
+            for (let m = 1; m <= 10; m++) {
+                const scaledX = normX * m; const scaledY = normY * m;
+                if (Math.abs(scaledX - Math.round(scaledX)) < TOLERANCE && Math.abs(scaledY - Math.round(scaledY)) < TOLERANCE) {
+                    simplified = [Math.round(scaledX), Math.round(scaledY)]; break;
+                }
+            }
+            if (simplified[0] < -TOLERANCE || (Math.abs(simplified[0]) < TOLERANCE && simplified[1] < -TOLERANCE)) {
+                simplified[0] *= -1; simplified[1] *= -1;
+            }
+            return simplified;
+        }
+
+        /** Calcula los valores y vectores propios de una matriz 2x2 (reales o complejos) */
+        function getEigen(m) {
+            const [a, b] = m[0]; const [c, d] = m[1];
+            const trace = a + d; const det = a * d - b * c;
+            const discriminant = trace * trace - 4 * det;
+            const isComplex = discriminant < -TOLERANCE;
+
+            if (isComplex) {
+                const sqrtDiscriminantIm = Math.sqrt(-discriminant);
+                const lambda1 = { re: trace / 2, im: sqrtDiscriminantIm / 2 };
+                const lambda2 = { re: trace / 2, im: -sqrtDiscriminantIm / 2 };
+                const findComplexEigenvector = (lambda) => {
+                    const z_a = { re: a, im: 0 }, z_b = { re: b, im: 0 }, z_c = { re: c, im: 0 }, z_d = { re: d, im: 0 };
+                    if (Math.abs(c) > TOLERANCE) return [C.sub(lambda, z_d), z_c];
+                    if (Math.abs(b) > TOLERANCE) return [z_b, C.sub(lambda, z_a)];
+                    if (Math.abs(lambda.re - d) > TOLERANCE || Math.abs(lambda.im) > TOLERANCE) return [{ re: 1, im: 0 }, { re: 0, im: 0 }];
+                    return [{ re: 0, im: 0 }, { re: 1, im: 0 }];
+                };
+                const complexEigenvector = findComplexEigenvector(lambda1);
+                const realPart = [complexEigenvector[0].re, complexEigenvector[1].re];
+                const imagPart = [complexEigenvector[0].im, complexEigenvector[1].im];
+                return { eigenvalues: [lambda1, lambda2], eigenvectors: [realPart, imagPart], isComplex: true };
+            } else {
+                const sqrtDiscriminant = Math.sqrt(Math.max(0, discriminant));
+                const lambda1 = (trace + sqrtDiscriminant) / 2; const lambda2 = (trace - sqrtDiscriminant) / 2;
+                const findEigenvector = (lambda) => {
+                    if (Math.abs(c) > TOLERANCE) return [lambda - d, c];
+                    if (Math.abs(b) > TOLERANCE) return [b, lambda - a];
+                    if (Math.abs(a - lambda) < TOLERANCE) return [1, 0];
+                    return [0, 1];
+                };
+                let v1 = findEigenvector(lambda1), v2 = findEigenvector(lambda2);
+                if (Math.abs(lambda1 - lambda2) < TOLERANCE && Math.abs(b) < TOLERANCE && Math.abs(c) < TOLERANCE) { v1 = [1, 0]; v2 = [0, 1]; }
+                return { eigenvalues: [{re: lambda1, im: 0}, {re: lambda2, im: 0}], eigenvectors: [simplifyVector(v1), simplifyVector(v2)], isComplex: false };
+            }
+        }
+
+        // ===================================================================================
+        // HOOK PERSONALIZADO PARA LA LÓGICA DE ANIMACIÓN
+        // ===================================================================================
+        function useAnimation(initialState = {}) {
+            const { initialT = 0, initialIsPlaying = false, initialIsLooping = false, initialSpeed = 1 } = initialState;
+            const [t, setT] = React.useState(initialT);
+            const [isPlaying, setIsPlaying] = React.useState(initialIsPlaying);
+            const [isLooping, setIsLooping] = React.useState(initialIsLooping);
+            const [animationSpeed, setAnimationSpeed] = React.useState(initialSpeed);
+            const animationFrameId = React.useRef(null); const lastTimeRef = React.useRef(null);
+            const tRef = React.useRef(t); tRef.current = t;
+            React.useEffect(() => {
+                if (!isPlaying) { cancelAnimationFrame(animationFrameId.current); return; }
+                const animate = (currentTime) => {
+                    if (lastTimeRef.current === null) lastTimeRef.current = currentTime;
+                    const deltaTime = currentTime - lastTimeRef.current;
+                    lastTimeRef.current = currentTime;
+                    setT(prevT => { const newT = prevT + (deltaTime / 1000) * (animationSpeed * 0.5); return newT < 1 ? newT : 1; });
+                    animationFrameId.current = requestAnimationFrame(animate);
+                };
+                lastTimeRef.current = null; animationFrameId.current = requestAnimationFrame(animate);
+                return () => cancelAnimationFrame(animationFrameId.current);
+            }, [isPlaying, animationSpeed]);
+            React.useEffect(() => { if (t >= 1) { if (isLooping) setT(0); else setIsPlaying(false); } }, [t, isLooping]);
+            const handlePlayPause = React.useCallback(() => { if (tRef.current >= 1) { setT(0); setIsPlaying(true); } else { setIsPlaying(prev => !prev); } }, []);
+            const handleLoopToggle = React.useCallback(() => setIsLooping(prev => !prev), []);
+            const handleTSlider = React.useCallback((e) => setT(parseFloat(e.target.value)), []);
+            const handleSpeedSlider = React.useCallback((e) => setAnimationSpeed(parseFloat(e.target.value)), []);
+            const handleTMouseDown = React.useCallback(() => setIsPlaying(false), []);
+            return { t, setT, isPlaying, setIsPlaying, isLooping, animationSpeed, handlePlayPause, handleLoopToggle, handleTSlider, handleSpeedSlider, handleTMouseDown };
+        }
+
+        // ===================================================================================
+        // COMPONENTES DE UI (MEMOIZADOS PARA OPTIMIZACIÓN)
+        // ===================================================================================
+
+        const CanvasComponent = React.memo(function CanvasComponent({ t, options, scale, vectors, onVectorsChange, analysis }) {
+            const canvasRef = React.useRef(null); const [dragTarget, setDragTarget] = React.useState(null);
+            
+            const getMousePos = React.useCallback((event) => {
+                const canvas = canvasRef.current;
+                if (!canvas) return { x: 0, y: 0 };
+                const rect = canvas.getBoundingClientRect();
+                
+                if (rect.width === 0 || rect.height === 0) {
+                    return { x: 0, y: 0 };
+                }
+
+                const xRatio = scale * rect.width / canvas.width;
+                const yRatio = -scale * rect.height / canvas.height;
+
+                if (xRatio === 0 || yRatio === 0) {
+                    return { x: 0, y: 0 };
+                }
+
+                const x = ((event.clientX - rect.left) - rect.width / 2) / xRatio;
+                const y = ((event.clientY - rect.top) - rect.height / 2) / yRatio;
+                return { x, y };
+            }, [scale]);
+
+            const handlePointerDown = React.useCallback((event) => {
+                const pos = getMousePos(event);
+                const d1 = Math.hypot(pos.x - vectors.iHat.x, pos.y - vectors.iHat.y);
+                const d2 = Math.hypot(pos.x - vectors.jHat.x, pos.y - vectors.jHat.y);
+                const d3 = options.showInOutVector ? Math.hypot(pos.x - vectors.vector.x, pos.y - vectors.vector.y) : Infinity;
+                const minDist = Math.min(d1, d2, d3);
+                if (minDist < 0.5) {
+                    if (minDist === d1) setDragTarget('iHat'); else if (minDist === d2) setDragTarget('jHat'); else if (minDist === d3) setDragTarget('vector');
+                    event.target.setPointerCapture(event.pointerId);
+                }
+            }, [getMousePos, vectors, options.showInOutVector]);
+            const handlePointerUp = React.useCallback((event) => { setDragTarget(null); event.target.releasePointerCapture(event.pointerId); }, []);
+            const handlePointerMove = React.useCallback((event) => {
+                if (!dragTarget) return;
+                let pos = getMousePos(event);
+                const SNAP_MARGIN = 0.1; const xSnap = Math.round(pos.x * 2) / 2; const ySnap = Math.round(pos.y * 2) / 2;
+                if (Math.abs(xSnap - pos.x) < SNAP_MARGIN) pos.x = xSnap;
+                if (Math.abs(ySnap - pos.y) < SNAP_MARGIN) pos.y = ySnap;
+                onVectorsChange(prev => ({ ...prev, [dragTarget]: pos }));
+            }, [dragTarget, getMousePos, onVectorsChange]);
+            React.useEffect(() => {
+                const canvas = canvasRef.current; const ctx = canvas.getContext('2d'); const t_num = parseFloat(t);
+                ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.save();
+                ctx.translate(canvas.width / 2, canvas.height / 2); ctx.scale(scale, -scale); ctx.lineWidth = 0.04;
+                const m = [[(1 - t_num) + t_num * vectors.iHat.x, t_num * vectors.jHat.x], [t_num * vectors.iHat.y, (1 - t_num) + t_num * vectors.jHat.y]];
+                ctx.strokeStyle = '#4a5568'; ctx.lineWidth = 0.02;
+                for (let i = -20; i <= 20; i++) { ctx.beginPath(); ctx.moveTo(i, -20); ctx.lineTo(i, 20); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-20, i); ctx.lineTo(20, i); ctx.stroke(); }
+                ctx.lineWidth = 0.04;
+                const gridColor = (options.showKernel && analysis.rank === 0) ? '#a855f7' : '#1fabc3'; ctx.strokeStyle = gridColor;
+                for (let i = -20; i <= 20; i++) { ctx.beginPath(); ctx.moveTo(...multiplyMatrixVector(m, [i, -20])); ctx.lineTo(...multiplyMatrixVector(m, [i, 20])); ctx.stroke(); ctx.beginPath(); ctx.moveTo(...multiplyMatrixVector(m, [-20, i])); ctx.lineTo(...multiplyMatrixVector(m, [20, i])); ctx.stroke(); }
+                
+                const drawSubspaceField = (vectors, color) => {
+                    ctx.strokeStyle = color;
+                    ctx.fillStyle = color;
+                    const oldWidth = ctx.lineWidth;
+                    ctx.lineWidth = 0.02;
+
+                    vectors.forEach(v => {
+                        const [vx, vy] = v;
+                        if (Math.abs(vx) < TOLERANCE && Math.abs(vy) < TOLERANCE) return;
+                        
+                        const transformedV = multiplyMatrixVector(m, v);
+
+                        // Dibuja una sucesión de flechas desde el origen para formar la línea
+                        for (let i = -22; i <= 22; i += 0.5) {
+                            if (Math.abs(i) < 0.1) continue;
+                            drawArrow(ctx, 0, 0, i * transformedV[0], i * transformedV[1], 0.2);
+                        }
+                    });
+                    ctx.lineWidth = oldWidth;
+                };
+
+                if (options.showKernel) {
+                    if (analysis.rank === 1 && analysis.nullSpaceBasis) {
+                        drawSubspaceField([analysis.nullSpaceBasis], '#a855f7');
+                    } else if (analysis.rank === 2) {
+                        const transformedOrigin = multiplyMatrixVector(m, [0, 0]);
+                        ctx.fillStyle = '#a855f7';
+                        ctx.beginPath();
+                        ctx.arc(transformedOrigin[0], transformedOrigin[1], 0.1, 0, 2 * Math.PI);
+                        ctx.fill();
+                    }
+                }
+                
+                if (options.showEigenvectors && analysis.eigenvectors && !analysis.isComplex) {
+                    drawSubspaceField(analysis.eigenvectors, '#fbbf24');
+                }
+
+                ctx.strokeStyle = '#ffffff'; ctx.beginPath(); ctx.moveTo(...multiplyMatrixVector(m, [-20, 0])); ctx.lineTo(...multiplyMatrixVector(m, [20, 0])); ctx.stroke(); ctx.beginPath(); ctx.moveTo(...multiplyMatrixVector(m, [0, -20])); ctx.lineTo(...multiplyMatrixVector(m, [0, 20])); ctx.stroke();
+                if (options.showDeterminant) { const det = determinant(m); ctx.fillStyle = det < 0 ? 'rgba(253, 0, 254, 0.5)' : 'rgba(253, 254, 0, 0.5)'; ctx.strokeStyle = det < 0 ? '#fd00fe' : '#fdfe00'; ctx.beginPath(); ctx.moveTo(...multiplyMatrixVector(m, [0, 0])); ctx.lineTo(...multiplyMatrixVector(m, [1, 0])); ctx.lineTo(...multiplyMatrixVector(m, [1, 1])); ctx.lineTo(...multiplyMatrixVector(m, [0, 1])); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+                ctx.globalAlpha = 0.5; ctx.strokeStyle = '#a0aec0'; ctx.fillStyle = '#a0aec0'; drawArrow(ctx, 0, 0, 1, 0, 0.2); drawArrow(ctx, 0, 0, 0, 1, 0.2); ctx.globalAlpha = 1.0;
+                const iHatTransformed = multiplyMatrixVector(m, [1, 0]); const jHatTransformed = multiplyMatrixVector(m, [0, 1]);
+                ctx.strokeStyle = '#8cbe63'; ctx.fillStyle = '#8cbe63'; drawArrow(ctx, 0, 0, ...iHatTransformed, 0.2);
+                ctx.strokeStyle = '#ff7c5c'; ctx.fillStyle = '#ff7c5c'; drawArrow(ctx, 0, 0, ...jHatTransformed, 0.2);
+                if (options.showInOutVector) { const vectorTransformed = multiplyMatrixVector(m, [vectors.vector.x, vectors.vector.y]); ctx.strokeStyle = '#fdfe00'; ctx.fillStyle = '#fdfe00'; drawArrow(ctx, 0, 0, ...vectorTransformed, 0.2); drawCrosshair(ctx, vectors.vector.x, vectors.vector.y, 0.16); }
+                ctx.strokeStyle = '#8cbe63'; drawCrosshair(ctx, vectors.iHat.x, vectors.iHat.y, 0.16); ctx.strokeStyle = '#ff7c5c'; drawCrosshair(ctx, vectors.jHat.x, vectors.jHat.y, 0.16);
+                ctx.restore();
+            }, [t, vectors, options, scale, analysis]);
+            return <canvas ref={canvasRef} width={1140} height={640} className="w-full bg-gray-800 rounded-md shadow-lg" onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} />;
+        });
+
+        const AnimationControls = React.memo(({ animationState, handlers }) => {
+            const PlayIcon = () => <svg className="w-6 h-6 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>;
+            const PauseIcon = () => <svg className="w-6 h-6 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>;
+            const LoopIcon = () => <svg className="w-6 h-6 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 2l4 4-4 4M3 12a9 9 0 019-9h9M7 22l-4-4 4-4M21 12a9 9 0 01-9 9H3"></path></svg>;
+            return (
+                <div className="grid grid-cols-1 md:grid-cols-[auto_1fr_1fr] items-center gap-x-6 gap-y-4 p-2 rounded-md bg-gray-900/50">
+                    <div className="flex items-center justify-center md:justify-start gap-4">
+                        <button onClick={handlers.onPlayPause} className="p-2 rounded-full hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400">{animationState.isPlaying ? <PauseIcon /> : <PlayIcon />}</button>
+                        <button onClick={handlers.onLoopToggle} className={`p-2 rounded-full hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 ${animationState.isLooping ? 'text-cyan-400' : ''}`}><LoopIcon /></button>
+                    </div>
+                    <div className="flex items-center gap-2 w-full">
+                        <label htmlFor="t-slider" className="font-medium">t:</label>
+                        <input id="t-slider" type="range" min="0" max="1" step="0.01" value={animationState.t} onMouseDown={handlers.onTMouseDown} onChange={handlers.onTSlider} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
+                        <span className="text-cyan-400 w-12 text-center">{Number(animationState.t).toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 w-full">
+                        <label htmlFor="speed-slider" className="font-medium">Velocidad:</label>
+                        <input id="speed-slider" type="range" min="0.25" max="4" step="0.25" value={animationState.animationSpeed} onChange={handlers.onSpeedSlider} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
+                        <span className="text-cyan-400 w-12 text-center">{animationState.animationSpeed}x</span>
+                    </div>
+                </div>
+            );
+        });
+
+        const DisplayOptions = React.memo(({ options, onOptionChange }) => {
+            const Checkbox = ({ name, label }) => (<label className="flex items-center space-x-2 cursor-pointer text-sm"><input type="checkbox" name={name} checked={options[name]} onChange={onOptionChange} className="form-checkbox h-4 w-4 text-cyan-400 bg-gray-700 border-gray-600 rounded focus:ring-cyan-500" /><span>{label}</span></label>);
+            return (<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-2"><Checkbox name="showInOutVector" label="Usar vector arbitrario" /><Checkbox name="showDeterminant" label="Mostrar Determinante" /><Checkbox name="showEigenvectors" label="Mostrar Vectores Propios" /><Checkbox name="showKernel" label="Mostrar Kernel" /></div>);
+        });
+
+        const MatrixDisplay = React.memo(({ vectors, options, analysis }) => {
+            const { iHat, jHat, vector } = vectors;
+            const finalVector = multiplyMatrixVector(analysis.matrix, [vector.x, vector.y]);
+            const FormattedNumber = ({ value, colorClass }) => { const [integer, fraction] = value.toFixed(2).split('.'); return <div className={`grid grid-cols-[1fr_auto_1fr] items-center font-mono text-xl ${colorClass}`}><span className="text-right">{integer}</span><span>.</span><span className="text-left">{fraction}</span></div>; };
+            const FractionalNumber = ({ value }) => (<span className="font-mono text-sm text-center">{value.toString()}</span>);
+            const Bracket = ({ side, heightClass = "h-16" }) => <div className={`w-2 ${heightClass} border-gray-500 ${side === 'left' ? 'border-l-2 border-t-2 border-b-2 rounded-l-md' : 'border-r-2 border-t-2 border-b-2 rounded-r-md'}`}></div>;
+            const MatrixLabel = ({ letter, colorClass }) => <div className={`text-xl font-bold italic ${colorClass}`}>{letter}</div>;
+            const VectorLabel = ({ letter, colorClass }) => <div className={`text-xl font-bold italic vector-arrow ${colorClass}`}>{letter}</div>;
+            const formatPolynomial = (trace, det) => {
+                let poly = [<span key="l2" className="text-cyan-400">λ²</span>];
+                if (Math.abs(trace) > TOLERANCE) poly.push(<span key="t" className="text-cyan-400">{trace > 0 ? " - " : " + "}{Math.abs(trace).toFixed(2)}λ</span>);
+                if (Math.abs(det) > TOLERANCE) poly.push(<span key="d" className="text-cyan-400">{det > 0 ? " + " : " - "}{Math.abs(det).toFixed(2)}</span>);
+                return poly;
+            };
+
+            return (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                        <div className="flex items-end justify-center gap-4">
+                             <div className="flex flex-col items-center gap-1">
+                                <MatrixLabel letter="A" colorClass="text-cyan-400" />
+                                <div className="flex items-center gap-2">
+                                    <Bracket side="left" />
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex flex-col justify-center gap-2"><FormattedNumber value={iHat.x} colorClass="text-[#8cbe63]" /><FormattedNumber value={iHat.y} colorClass="text-[#8cbe63]" /></div>
+                                        <div className="flex flex-col justify-center gap-2"><FormattedNumber value={jHat.x} colorClass="text-[#ff7c5c]" /><FormattedNumber value={jHat.y} colorClass="text-[#ff7c5c]" /></div>
+                                    </div>
+                                    <Bracket side="right" />
+                                </div>
+                            </div>
+                            {options.showInOutVector && (
+                                <>
+                                    <div className="flex flex-col items-center gap-1"><VectorLabel letter="v" colorClass="text-[#fdfe00]" /><div className="flex items-center gap-2"><Bracket side="left" /><div className="flex flex-col justify-center gap-2"><FormattedNumber value={vector.x} colorClass="text-[#fdfe00]" /><FormattedNumber value={vector.y} colorClass="text-[#fdfe00]" /></div><Bracket side="right" /></div></div>
+                                    <div className="text-2xl font-bold self-center">=</div>
+                                    <div className="flex flex-col items-center gap-1"><VectorLabel letter="b" colorClass="text-white" /><div className="flex items-center gap-2"><Bracket side="left" /><div className="flex flex-col justify-center gap-2"><FormattedNumber value={finalVector[0]} colorClass="text-white" /><FormattedNumber value={finalVector[1]} colorClass="text-white" /></div><Bracket side="right" /></div></div>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                    <div className="flex flex-col justify-center items-center lg:items-start text-base font-mono border-t-2 lg:border-t-0 lg:border-l-2 border-gray-700 pt-4 lg:pt-0 lg:pl-4">
+                        <div className="grid grid-cols-[auto,1fr] gap-x-4 w-full">
+                            <div className="font-semibold text-gray-400">Rango(<span className="text-cyan-400">A</span>)</div><div>= <span className="text-cyan-400">{analysis.rank}</span></div>
+                            <div className="font-semibold text-gray-400">det(<span className="text-cyan-400">A</span>)</div><div>= <span className="text-cyan-400">{analysis.determinant.toFixed(3)}</span></div>
+                            <div className="font-semibold text-gray-400">Ker(<span className="text-cyan-400">A</span>)</div><div>= <span className="text-purple-400">{analysis.nullSpace}</span></div>
+                            <div className="font-semibold text-gray-400">Nulidad(<span className="text-cyan-400">A</span>)</div><div>= <span className="text-cyan-400">{analysis.nullity}</span></div>
+                            <div className="font-semibold text-gray-400">P(λ)</div><div>= <span className="text-cyan-400">{formatPolynomial(analysis.trace, analysis.determinant)}</span></div>
+                        </div>
+                        <div className="mt-2"><div className="font-semibold text-gray-400">Valores Propios (λ):</div>{analysis.eigenvalues ? (<div className="text-amber-400 pl-4">λ₁ = {C.toString(analysis.eigenvalues[0], 3)}, λ₂ = {C.toString(analysis.eigenvalues[1], 3)}</div>) : (<div className="text-amber-400 pl-4">No calculados</div>)}</div>
+                        {options.showEigenvectors && (
+                            <div className="mt-2"><div className="font-semibold text-gray-400">Vectores Propios:</div>
+                                {analysis.eigenvectors ? ( analysis.isComplex ? (
+                                    <div className="pl-4 pt-1 text-amber-400 text-sm">
+                                        <span>
+                                            <span className="vector-arrow">v</span><sub className="ml-0.5">1,2</sub> = [{analysis.eigenvectors[0].map(n => n.toFixed(2)).join(', ')}] ± i·[{analysis.eigenvectors[1].map(n => n.toFixed(2)).join(', ')}]
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <div className="pl-4 pt-1 text-amber-400">
+                                        <span>
+                                            <span className="vector-arrow">v</span><sub className="ml-0.5">1</sub> = [{analysis.eigenvectors[0].join(', ')}],{' '}
+                                            <span className="vector-arrow">v</span><sub className="ml-0.5">2</sub> = [{analysis.eigenvectors[1].join(', ')}]
+                                        </span>
+                                    </div>
+                                )) : (<div className="text-amber-400 pl-4">No calculados</div>)}
+                            </div>
+                        )}
+                         <div className="mt-2">
+                            <div className="font-semibold text-gray-400">Inversa (<span className="text-cyan-400">A</span>⁻¹):</div>
+                            <div className="pl-4 min-h-[3.5rem] flex items-center">
+                                {analysis.inverseMatrix ? (
+                                    <div className="flex items-center gap-2 text-gray-300">
+                                        <Bracket side="left" heightClass="h-12" />
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex flex-col justify-center gap-2 min-w-[3rem]"><FractionalNumber value={analysis.inverseMatrix[0][0]} /><FractionalNumber value={analysis.inverseMatrix[1][0]} /></div>
+                                            <div className="flex flex-col justify-center gap-2 min-w-[3rem]"><FractionalNumber value={analysis.inverseMatrix[0][1]} /><FractionalNumber value={analysis.inverseMatrix[1][1]} /></div>
+                                        </div>
+                                        <Bracket side="right" heightClass="h-12" />
+                                    </div>
+                                ) : (
+                                    <div className="text-gray-400">No es invertible</div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        });
+
+        // ===================================================================================
+        // COMPONENTE APLICACIÓN PRINCIPAL (APP)
+        // ===================================================================================
+
+        function App() {
+            const { t, setT, isPlaying, setIsPlaying, ...animation } = useAnimation();
+            const [options, setOptions] = React.useState({ showInOutVector: false, showDeterminant: false, showEigenvectors: false, showKernel: false });
+            const [vectors, setVectors] = React.useState({ iHat: { x: 1, y: 0 }, jHat: { x: 0, y: 1 }, vector: { x: 1, y: 1 } });
+
+            const analysis = React.useMemo(() => {
+                const { iHat, jHat } = vectors;
+                const matrix = [[iHat.x, jHat.x], [iHat.y, jHat.y]];
+                const det = determinant(matrix);
+                const isZeroMatrix = Math.abs(iHat.x) < TOLERANCE && Math.abs(iHat.y) < TOLERANCE && Math.abs(jHat.x) < TOLERANCE && Math.abs(jHat.y) < TOLERANCE;
+                const rank = isZeroMatrix ? 0 : (Math.abs(det) < TOLERANCE ? 1 : 2);
+                const nullity = 2 - rank;
+                let nullSpace, nullSpaceBasis;
+                if (nullity === 0) { nullSpace = "{ [0, 0] }"; nullSpaceBasis = null; }
+                else if (nullity === 1) {
+                    let basis = (Math.abs(matrix[0][0]) > TOLERANCE || Math.abs(matrix[0][1]) > TOLERANCE) ? [-matrix[0][1], matrix[0][0]] : [-matrix[1][1], matrix[1][0]];
+                    basis = simplifyVector(basis);
+                    nullSpace = `gen({ [${basis[0]}, ${basis[1]}] })`; nullSpaceBasis = basis;
+                } else { nullSpace = "ℝ²"; nullSpaceBasis = null; }
+                const { eigenvalues, eigenvectors, isComplex } = getEigen(matrix);
+                const inverseMatrix = getInverseMatrix(matrix);
+                return { matrix, rank, nullity, nullSpace, nullSpaceBasis, determinant: det, trace: matrix[0][0] + matrix[1][1], eigenvalues, eigenvectors, isComplex, inverseMatrix };
+            }, [vectors.iHat, vectors.jHat]);
+
+            const handleReset = React.useCallback(() => { setVectors({ iHat: { x: 1, y: 0 }, jHat: { x: 0, y: 1 }, vector: { x: 1, y: 1 } }); setT(0); setIsPlaying(false); }, [setT, setIsPlaying]);
+            const handleOptionChange = React.useCallback((e) => { const { name, checked } = e.target; setOptions(prev => ({ ...prev, [name]: checked })); }, []);
+
+            return (
+                <div className="w-full max-w-6xl mx-auto flex flex-col gap-4">
+                    <h1 className="text-2xl font-bold text-center text-cyan-300">
+                        Visualizador de transformaciones lineales en dos dimensiones
+                    </h1>
+                    <div className="bg-gray-800/50 p-4 rounded-lg shadow-2xl backdrop-blur-sm border border-gray-700">
+                        <div className="relative">
+                            <CanvasComponent t={t} options={options} scale={60} vectors={vectors} onVectorsChange={setVectors} analysis={analysis} />
+                            <button onClick={handleReset} className="absolute top-3 right-3 p-2 rounded-full bg-gray-900/50 hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400" title="Resetear Vectores"><svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path></svg></button>
+                        </div>
+                        <div className="mt-4 flex flex-col gap-4">
+                            <AnimationControls animationState={{ t, isPlaying, ...animation }} handlers={{ onPlayPause: animation.handlePlayPause, onLoopToggle: animation.handleLoopToggle, onTSlider: animation.handleTSlider, onSpeedSlider: animation.handleSpeedSlider, onTMouseDown: animation.handleTMouseDown }} />
+                            <DisplayOptions options={options} onOptionChange={handleOptionChange} />
+                        </div>
+                    </div>
+                    <MatrixDisplay vectors={vectors} options={options} analysis={analysis} />
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('app')).render(<App />);
+    </script>
+</body>
+</html>

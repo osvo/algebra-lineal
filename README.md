@@ -26,6 +26,6 @@ De momento, los archivos están autocontenidos, así que puede descargar su apli
 
 ```bash
 # Opcional: Clonar el repositorio
-git clone https://github.com/tu-usuario/tu-repositorio.git
+git clone https://github.com/osvo/algebra-lineal.git
 # Luego, abrir index.html en el navegador
 ```

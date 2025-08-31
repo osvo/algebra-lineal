@@ -6,17 +6,20 @@
     <title>Laboratorio interactivo de Álgebra Lineal</title>
     <!-- Tailwind CSS para el diseño -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React y ReactDOM para el fondo animado -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <!-- Google Fonts para una tipografía más agradable -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="squares.css">
     <style>
-        /* Estilo personalizado para un fondo degradado sutil */
+        /* Estilo base del cuerpo */
         body {
             font-family: 'Inter', sans-serif;
             background-color: #0f172a; /* Color de fondo base (azul oscuro) */
-            background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0);
-            background-size: 2rem 2rem;
         }
         /* Efecto de "glow" al pasar el mouse sobre las tarjetas */
         .card-hover-effect {
@@ -29,6 +32,9 @@
     </style>
 </head>
 <body class="text-slate-200 antialiased">
+
+    <!-- Fondo de cuadrados animados -->
+    <div id="squares-root" class="fixed inset-0 -z-10"></div>
 
     <div class="container mx-auto px-4 py-8 md:py-16">
 
@@ -107,6 +113,20 @@
         </footer>
 
     </div>
+
+    <!-- Scripts del fondo de cuadrados -->
+    <script type="text/babel" src="squares.js"></script>
+    <script type="text/babel">
+        ReactDOM.createRoot(document.getElementById('squares-root')).render(
+            <Squares
+                speed={0.5}
+                squareSize={40}
+                direction="diagonal"
+                borderColor="#4a5568"
+                hoverFillColor="#1fabc3"
+            />
+        );
+    </script>
 
 </body>
 </html>

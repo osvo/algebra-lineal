@@ -2,6 +2,12 @@
 
 Este es un proyecto web diseñado para proporcionar una forma interactiva y visual de aprender conceptos fundamentales del álgebra lineal. A través de una serie de aplicaciones, los usuarios pueden manipular parámetros y observar en tiempo real los efectos sobre vectores y espacios vectoriales.
 
+## Influencia y reconocimiento
+
+Este es un proyecto independiente fuertemente inspirado por el enfoque de matemáticas visuales de [3Blue1Brown](https://www.3blue1brown.com/). No está afiliado oficialmente con 3Blue1Brown.
+
+_This is an independent project strongly inspired by [3Blue1Brown](https://www.3blue1brown.com/) and its visual approach to mathematics. It is not officially affiliated with 3Blue1Brown._
+
 ## Descripción
 
 El proyecto consiste en una colección de herramientas interactivas que ayudan a visualizar conceptos clave del álgebra lineal. Es ideal para estudiantes, educadores o cualquier persona interesada en desarrollar una intuición más profunda sobre temas como transformaciones, cambios de base y más.

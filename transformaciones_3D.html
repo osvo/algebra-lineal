@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visualizador de Transformaciones Lineales 3D - Versión Avanzada</title>
+    <title>3D linear transformation visualizer</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/numeric/1.2.6/numeric.min.js"></script>
     <style>
@@ -25,38 +25,50 @@
         .control-button { background-color: transparent; border: none; color: #94a3b8; padding: 0.5rem; border-radius: 9999px; transition: background-color 0.2s, color 0.2s; cursor: pointer; }
         .control-button:hover { background-color: #334155; color: #e2e8f0; }
         .control-button.active { color: #5eead4; }
-        #view-controls { 
-            position: absolute; 
-            top: 0.75rem; 
-            right: 0.75rem; 
-            z-index: 10; 
-            background-color: rgba(30, 41, 59, 0.7); 
-            backdrop-filter: blur(5px); 
-            border-radius: 0.5rem; 
-            display: flex; 
-            flex-direction: column; 
-            gap: 0.25rem; 
-            padding: 0.25rem; 
+        #view-controls {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            z-index: 10;
+            background-color: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(5px);
+            border-radius: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            padding: 0.25rem;
             border: 1px solid #334155;
         }
-        .view-btn { 
-            font-size: 0.75rem; 
-            font-weight: bold; 
-            width: 2rem; 
-            height: 2rem; 
-            border-radius: 9999px; 
+        .view-btn {
+            font-size: 0.75rem;
+            font-weight: bold;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 9999px;
             display: grid;
             place-items: center;
-            padding: 0 !important; 
+            padding: 0 !important;
         }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="laboratorio.css">
+    <script src="i18n.js"></script>
 </head>
-<body class="p-4">
+<body class="lab-page p-4" data-title-en="3D linear transformation visualizer" data-title-es="Visualizador de transformaciones lineales 3D">
+    <nav class="site-nav" aria-label="Navegación principal">
+        <div class="site-nav__inner">
+            <a class="site-nav__brand" href="index.html">
+                <span class="site-nav__mark" aria-hidden="true">λ</span>
+                <span class="site-nav__label"><span>Laboratorio lineal</span><small>Transformaciones 3D</small></span>
+            </a>
+            <div class="site-nav__links"><a href="index.html#experimentos">Todos los módulos</a><a href="index.html">← Inicio</a></div>
+        </div>
+    </nav>
 
     <div id="main-container">
+        <h1>Transformaciones lineales en tres dimensiones</h1>
 
         <div id="controls" class="panel w-full mb-4 pt-4">
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
@@ -102,7 +114,7 @@
                 <button id="view-yz-btn" class="control-button view-btn">YZ</button>
             </div>
         </div>
-        
+
         <div class="w-full mt-4 panel">
              <div class="grid grid-cols-1 md:grid-cols-[auto_1fr_1fr] items-center gap-x-6 gap-y-4">
                 <div class="flex items-center gap-2">
@@ -159,10 +171,10 @@
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-        
+
         let scene, camera, renderer, controls, initialCameraState;
         let transformedArrowI, transformedArrowJ, transformedArrowK;
-        let octantCubesGroup, verticesGradientGroup; 
+        let octantCubesGroup, verticesGradientGroup;
         let imagePlane, imageLine, imagePoint;
 
         let activeVisGroup;
@@ -172,7 +184,7 @@
 
         const i_hat = new THREE.Vector3(1, 0, 0), j_hat = new THREE.Vector3(0, 1, 0), k_hat = new THREE.Vector3(0, 0, 1);
         let i_hat_final = i_hat.clone(), j_hat_final = j_hat.clone(), k_hat_final = k_hat.clone();
-        
+
         const presets = {
             "Personalizado": {
                 "Matriz Actual": { matrix: [] }
@@ -220,10 +232,10 @@
                 "en ZY": { matrix: [1,0,0, 0,1,0, 0,1,1] },
             }
         };
-        
+
         let i_hat_t = new THREE.Vector3(), j_hat_t = new THREE.Vector3(), k_hat_t = new THREE.Vector3();
         let transformMatrix4 = new THREE.Matrix4();
-        
+
         function init() {
             const container = document.getElementById('canvas-container');
             scene = new THREE.Scene();
@@ -241,14 +253,14 @@
             container.appendChild(renderer.domElement);
             controls = new OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
-            
+
             const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
             scene.add(ambientLight);
 
             createVisualElements();
             setupUIListeners();
             animate();
-            
+
             window.addEventListener('resize', onWindowResize);
         }
 
@@ -260,19 +272,19 @@
             createImageHelpers();
             activeVisGroup = octantCubesGroup;
         }
-        
+
         function createImageHelpers() {
             const planeGeom = new THREE.PlaneGeometry(30, 30);
-            const planeMat = new THREE.MeshStandardMaterial({ 
-                color: 0xffffff, 
-                side: THREE.DoubleSide, 
-                transparent: true, 
-                opacity: 0.25 
+            const planeMat = new THREE.MeshStandardMaterial({
+                color: 0xffffff,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.25
             });
             imagePlane = new THREE.Mesh(planeGeom, planeMat);
             imagePlane.visible = false;
             scene.add(imagePlane);
-            
+
             const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 3, transparent: true, opacity: 0.5 });
             const lineGeom = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-100, 0, 0), new THREE.Vector3(100, 0, 0)]);
             imageLine = new THREE.Line(lineGeom, lineMat);
@@ -296,7 +308,7 @@
             };
             createAxis(new THREE.Vector3(1, 0, 0), 0xff0000); createAxis(new THREE.Vector3(0, 1, 0), 0x00ff00); createAxis(new THREE.Vector3(0, 0, 1), 0x0000ff);
         }
-        function createBasisVectors() { 
+        function createBasisVectors() {
             const origin = new THREE.Vector3(0, 0, 0);
             scene.add(new THREE.ArrowHelper(i_hat, origin, 1, 0xff0000, 0.2, 0.1)); scene.add(new THREE.ArrowHelper(j_hat, origin, 1, 0x00ff00, 0.2, 0.1)); scene.add(new THREE.ArrowHelper(k_hat, origin, 1, 0x0000ff, 0.2, 0.1));
         }
@@ -305,7 +317,7 @@
             transformedArrowI = new THREE.ArrowHelper(i_hat, origin, 1, 0xffa500, 0.25, 0.15); transformedArrowJ = new THREE.ArrowHelper(j_hat, origin, 1, 0x00ffff, 0.25, 0.15); transformedArrowK = new THREE.ArrowHelper(k_hat, origin, 1, 0xff00ff, 0.25, 0.15);
             scene.add(transformedArrowI, transformedArrowJ, transformedArrowK);
         }
-        
+
         function createOctantCubes() {
             octantCubesGroup = new THREE.Group();
             const cubeSize = 4;
@@ -338,7 +350,7 @@
             verticesGradientGroup = new THREE.Group();
             const volumeSize = 10;
             const halfVolume = volumeSize / 2;
-            const sphereGeom = new THREE.SphereGeometry(0.07, 8, 8); 
+            const sphereGeom = new THREE.SphereGeometry(0.07, 8, 8);
 
             for (let i = 0; i <= volumeSize; i++) {
                 for (let j = 0; j <= volumeSize; j++) {
@@ -353,7 +365,7 @@
 
                         const sphereMat = new THREE.MeshBasicMaterial();
                         sphereMat.color.setRGB(r, g, b);
-                        
+
                         const sphere = new THREE.Mesh(sphereGeom, sphereMat);
                         sphere.position.set(x, y, z);
                         verticesGradientGroup.add(sphere);
@@ -361,7 +373,7 @@
                 }
             }
             scene.add(verticesGradientGroup);
-            verticesGradientGroup.visible = false; 
+            verticesGradientGroup.visible = false;
         }
 
         function createDeterminantBox() {
@@ -431,7 +443,7 @@
             if (den === 1) return `${num}`;
             return `${num}/${den}`;
         }
-        
+
         const SYMBOLIC_CONSTANTS = new Map([
             [Math.sqrt(2), "√2"],
             [Math.sqrt(3), "√3"],
@@ -508,13 +520,13 @@
                     updateAnalysis();
                 }
             }
-            
+
             categorySelect.addEventListener('change', () => {
                 populateTransforms(categorySelect.value);
                 updateMatrixFromUI();
             });
             presetsSelect.addEventListener('change', updateMatrixFromUI);
-            
+
             mainMatrixInputs.forEach(input => input.addEventListener('input', () => {
                 const currentPreset = presets[categorySelect.value][presetsSelect.value];
                 if (categorySelect.value !== "Personalizado" && !currentPreset.requiresVector) {
@@ -523,7 +535,7 @@
                 }
                 updateAnalysis();
             }));
-            
+
             vxInput.addEventListener('input', updateMatrixFromUI);
             vyInput.addEventListener('input', updateMatrixFromUI);
             vzInput.addEventListener('input', updateMatrixFromUI);
@@ -531,7 +543,7 @@
                 angleValue.textContent = `${e.target.value}°`;
                 updateMatrixFromUI();
             });
-            
+
             document.getElementById('t-slider').addEventListener('input', (e) => {
                 animationState.t = parseFloat(e.target.value);
                 document.getElementById('t-value').textContent = animationState.t.toFixed(2);
@@ -557,17 +569,17 @@
             document.getElementById('show-determinant').addEventListener('change', (e) => { determinantBox.visible = e.target.checked; });
             document.getElementById('show-eigenvectors').addEventListener('change', (e) => { eigenVectorsGroup.visible = e.target.checked; });
             document.getElementById('show-kernel').addEventListener('change', (e) => { kernelGroup.visible = e.target.checked; });
-            
+
             document.getElementById('vis-mode').addEventListener('change', (e) => {
                 const mode = e.target.value;
                 octantCubesGroup.visible = mode === 'cubes';
                 verticesGradientGroup.visible = mode === 'vertices_gradient';
-                
+
                 if (mode === 'cubes') activeVisGroup = octantCubesGroup;
                 else if (mode === 'vertices_gradient') activeVisGroup = verticesGradientGroup;
                 else activeVisGroup = null;
             });
-            
+
             Object.keys(presets).forEach(groupName => categorySelect.add(new Option(groupName, groupName)));
             categorySelect.value = "Básicas";
             populateTransforms("Básicas");
@@ -579,7 +591,7 @@
 
         function updatePlayButtonIcon() {
             const btn = document.getElementById('play-pause-btn');
-            btn.innerHTML = animationState.isPlaying 
+            btn.innerHTML = animationState.isPlaying
                 ? `<svg class="w-6 h-6 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>`
                 : `<svg class="w-6 h-6 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>`;
         }
@@ -627,9 +639,9 @@
             const mArray = [];
             for(let r=0; r<3; r++) for(let c=0; c<3; c++) mArray.push(parseFloat(document.getElementById(`m${r}${c}`).value) || 0);
             const [m00, m01, m02, m10, m11, m12, m20, m21, m22] = mArray;
-            
+
             i_hat_final.set(m00, m10, m20); j_hat_final.set(m01, m11, m21); k_hat_final.set(m02, m12, m22);
-            
+
             const matrixForNumeric = [[m00, m01, m02], [m10, m11, m12], [m20, m21, m22]];
             analysis.rank = getRank(matrixForNumeric);
             analysis.determinant = numeric.det(matrixForNumeric);
@@ -638,7 +650,7 @@
             document.getElementById('nullity-value').textContent = 3 - analysis.rank;
             document.getElementById('determinant-value').textContent = analysis.determinant.toFixed(3);
             document.getElementById('determinant-desc').textContent = analysis.determinant < 0 ? "(Orientación Invertida)" : "";
-            
+
             updateKernelDisplay(matrixForNumeric);
             updateInverseDisplay(matrixForNumeric);
             try { analysis.eigen = numeric.eig(matrixForNumeric); } catch (e) { analysis.eigen = null; }
@@ -737,7 +749,7 @@
                 }
             }
         }
-        
+
         function updateKernelVisuals() {
             kernelGroup.clear();
             const { rank, kernelBasis } = analysis;
@@ -781,28 +793,28 @@
                 document.getElementById('t-value').textContent = animationState.t.toFixed(2);
             }
             animationState.lastTime = currentTime;
-            
+
             if (Math.abs(animationState.t - animationState.lastT) < 1e-6) {
                 renderer.render(scene, camera);
                 return;
             }
             animationState.lastT = animationState.t;
-            
+
             const t = animationState.t;
-            
+
             i_hat_t.lerpVectors(i_hat, i_hat_final, t);
             j_hat_t.lerpVectors(j_hat, j_hat_final, t);
             k_hat_t.lerpVectors(k_hat, k_hat_final, t);
-            
+
             transformedArrowI.setDirection(i_hat_t.clone().normalize());
             transformedArrowI.setLength(i_hat_t.length() || 1e-9, 0.25, 0.15);
             transformedArrowJ.setDirection(j_hat_t.clone().normalize());
             transformedArrowJ.setLength(j_hat_t.length() || 1e-9, 0.25, 0.15);
             transformedArrowK.setDirection(k_hat_t.clone().normalize());
             transformedArrowK.setLength(k_hat_t.length() || 1e-9, 0.25, 0.15);
-            
+
             transformMatrix4.makeBasis(i_hat_t, j_hat_t, k_hat_t);
-            
+
             if (activeVisGroup) {
                 activeVisGroup.matrix.copy(transformMatrix4);
                 activeVisGroup.matrixAutoUpdate = false;
@@ -812,7 +824,7 @@
                 determinantBox.matrix.copy(transformMatrix4);
                 determinantBox.matrixAutoUpdate = false;
             }
-            
+
             imagePlane.visible = false;
             imageLine.visible = false;
             imagePoint.visible = false;

@@ -1,132 +1,449 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Laboratorio interactivo de Álgebra Lineal</title>
-    <!-- Tailwind CSS para el diseño -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- React y ReactDOM para el fondo animado -->
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Google Fonts para una tipografía más agradable -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="squares.css">
+    <meta name="description" content="An interactive laboratory for exploring transformations, bases, matrices, and vector spaces visually." data-en="An interactive laboratory for exploring transformations, bases, matrices, and vector spaces visually." data-es="Laboratorio interactivo para explorar transformaciones, bases, matrices y espacios vectoriales de forma visual.">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Linear Algebra Laboratory" data-en="Linear Algebra Laboratory" data-es="Laboratorio de Álgebra Lineal">
+    <meta property="og:description" content="Matrices move, too. Six experiments that turn abstract operations into visible intuition." data-en="Matrices move, too. Six experiments that turn abstract operations into visible intuition." data-es="Las matrices también se mueven. Seis experimentos para convertir operaciones abstractas en intuiciones visibles.">
+    <meta property="og:url" content="https://osvo.github.io/algebra-lineal/">
+    <meta property="og:image" content="https://osvo.github.io/algebra-lineal/og-en.png" data-en="https://osvo.github.io/algebra-lineal/og-en.png" data-es="https://osvo.github.io/algebra-lineal/og.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Linear Algebra Laboratory" data-en="Linear Algebra Laboratory" data-es="Laboratorio de Álgebra Lineal">
+    <meta name="twitter:description" content="Matrices move, too. Explore linear algebra visually." data-en="Matrices move, too. Explore linear algebra visually." data-es="Las matrices también se mueven. Explora álgebra lineal de forma visual.">
+    <meta name="twitter:image" content="https://osvo.github.io/algebra-lineal/og-en.png" data-en="https://osvo.github.io/algebra-lineal/og-en.png" data-es="https://osvo.github.io/algebra-lineal/og.png">
+    <title>Linear Algebra Laboratory</title>
+    <link rel="stylesheet" href="laboratorio.css">
+    <script src="i18n.js"></script>
     <style>
-        /* Estilo base del cuerpo */
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #0f172a; /* Color de fondo base (azul oscuro) */
+        .home {
+            --home-width: min(100% - 32px, 1240px);
+            overflow-x: hidden;
         }
-        /* Efecto de "glow" al pasar el mouse sobre las tarjetas */
-        .card-hover-effect {
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+
+        .home-hero {
+            width: var(--home-width);
+            margin: 0 auto;
+            min-height: 660px;
+            padding: 82px 0 72px;
+            display: grid;
+            grid-template-columns: minmax(0, 1.25fr) minmax(300px, .75fr);
+            gap: 80px;
+            align-items: center;
         }
-        .card-hover-effect:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 0 15px 0 rgba(56, 189, 248, 0.4); /* Sombra de color cian */
+
+        .kicker {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 0 0 30px;
+            color: var(--acid);
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+        }
+
+        .kicker::before {
+            content: "";
+            width: 36px;
+            height: 1px;
+            background: currentColor;
+        }
+
+        .home-hero h1 {
+            max-width: 780px;
+            margin: 0;
+            color: var(--paper);
+            font-size: clamp(58px, 8.2vw, 118px);
+            font-weight: 700;
+            letter-spacing: -.07em;
+            line-height: .86;
+        }
+
+        .home-hero h1 em {
+            color: var(--acid);
+            font-family: Georgia, serif;
+            font-weight: 400;
+        }
+
+        .hero-copy {
+            align-self: end;
+            padding-bottom: 8px;
+        }
+
+        .hero-copy p {
+            margin: 0 0 30px;
+            color: #c5cbc6;
+            font-size: 18px;
+            line-height: 1.65;
+        }
+
+        .inspiration-credit {
+            margin-top: 22px !important;
+            color: var(--muted) !important;
+            font-family: var(--font-mono);
+            font-size: 11px !important;
+            letter-spacing: .02em;
+        }
+
+        .inspiration-credit a {
+            color: var(--paper);
+            text-underline-offset: 4px;
+        }
+
+        .inspiration-credit a:hover {
+            color: var(--acid);
+        }
+
+        .hero-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 18px;
+            color: var(--paper);
+            text-decoration: none;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+        }
+
+        .hero-link::after {
+            content: "↘";
+            width: 38px;
+            height: 38px;
+            display: grid;
+            place-items: center;
+            border: 1px solid var(--acid);
+            color: var(--acid);
+            font-size: 18px;
+        }
+
+        .hero-link:hover {
+            color: var(--acid);
+        }
+
+        .concept-strip {
+            border-top: 1px solid var(--line);
+            border-bottom: 1px solid var(--line);
+        }
+
+        .concept-strip__inner {
+            width: var(--home-width);
+            min-height: 86px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        .concept-strip span {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--muted);
+            font-family: var(--font-mono);
+            font-size: 11px;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+
+        .concept-strip span::before {
+            content: attr(data-symbol);
+            color: var(--coral);
+            font-family: Georgia, serif;
+            font-size: 22px;
+            text-transform: none;
+        }
+
+        .modules {
+            width: var(--home-width);
+            margin: 0 auto;
+            padding: 112px 0 128px;
+        }
+
+        .section-head {
+            margin-bottom: 58px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            align-items: end;
+        }
+
+        .section-head h2 {
+            margin: 0;
+            font-size: clamp(42px, 6vw, 76px);
+            letter-spacing: -.055em;
+            line-height: .95;
+        }
+
+        .section-head p {
+            max-width: 540px;
+            margin: 0;
+            justify-self: end;
+            color: var(--muted);
+            font-size: 16px;
+            line-height: 1.7;
+        }
+
+        .module-list {
+            border-top: 1px solid var(--line);
+        }
+
+        .module {
+            min-height: 164px;
+            display: grid;
+            grid-template-columns: 90px minmax(230px, .9fr) minmax(300px, 1.35fr) 56px;
+            gap: 28px;
+            align-items: center;
+            border-bottom: 1px solid var(--line);
+            text-decoration: none;
+            transition: color .2s ease, background-color .2s ease;
+        }
+
+        .module:hover {
+            color: var(--acid);
+            background: var(--surface);
+        }
+
+        .module__number {
+            color: var(--coral);
+            font-family: var(--font-mono);
+            font-size: 12px;
+        }
+
+        .module h3 {
+            margin: 0;
+            color: var(--paper);
+            font-size: clamp(24px, 3vw, 38px);
+            font-weight: 600;
+            letter-spacing: -.04em;
+            line-height: 1.08;
+        }
+
+        .module p {
+            max-width: 620px;
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.65;
+        }
+
+        .module__arrow {
+            color: var(--acid);
+            font-family: var(--font-mono);
+            font-size: 24px;
+            text-align: right;
+        }
+
+        .learning-note {
+            background: var(--acid);
+            color: var(--ink);
+        }
+
+        .learning-note__inner {
+            width: var(--home-width);
+            min-height: 330px;
+            margin: 0 auto;
+            padding: 70px 0;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 70px;
+            align-items: center;
+        }
+
+        .learning-note h2 {
+            max-width: 660px;
+            margin: 0;
+            font-size: clamp(42px, 6vw, 76px);
+            letter-spacing: -.06em;
+            line-height: .96;
+        }
+
+        .learning-note p {
+            max-width: 540px;
+            margin: 0;
+            font-size: 17px;
+            line-height: 1.7;
+        }
+
+        @media (max-width: 860px) {
+            .home-hero,
+            .section-head,
+            .learning-note__inner {
+                grid-template-columns: 1fr;
+            }
+
+            .home-hero {
+                min-height: auto;
+                padding: 64px 0;
+                gap: 48px;
+            }
+
+            .hero-copy {
+                max-width: 620px;
+            }
+
+            .concept-strip__inner {
+                grid-template-columns: repeat(2, 1fr);
+                padding: 18px 0;
+                gap: 18px;
+            }
+
+            .section-head p {
+                justify-self: start;
+            }
+
+            .module {
+                grid-template-columns: 54px 1fr 42px;
+                padding: 28px 0;
+            }
+
+            .module p {
+                grid-column: 2 / 4;
+            }
+
+            .module__arrow {
+                grid-column: 3;
+                grid-row: 1;
+            }
+        }
+
+        @media (max-width: 560px) {
+            .home {
+                --home-width: min(100% - 24px, 1240px);
+            }
+
+            .home-hero h1 {
+                font-size: clamp(52px, 17vw, 78px);
+            }
+
+            .concept-strip__inner {
+                grid-template-columns: 1fr;
+            }
+
+            .modules {
+                padding: 78px 0 88px;
+            }
+
+            .module {
+                grid-template-columns: 42px 1fr 30px;
+                gap: 12px;
+            }
         }
     </style>
 </head>
-<body class="text-slate-200 antialiased">
-
-    <!-- Fondo de cuadrados animados -->
-    <div id="squares-root" class="fixed inset-0 -z-10"></div>
-
-    <div class="container mx-auto px-4 py-8 md:py-16 min-h-screen flex flex-col justify-between">
-
-        <header class="text-center mb-8">
-            <h1 class="text-4xl md:text-5xl font-bold text-cyan-300 mb-4">
-                Laboratorio Interactivo de Álgebra Lineal
-            </h1>
-            <p class="text-lg text-slate-400 max-w-3xl mx-auto">
-                Una colección de herramientas interactivas para visualizar conceptos fundamentales del álgebra lineal, desde transformaciones en 2D y 3D hasta cambios de base.
-            </p>
-        </header>
-
-        <main class="flex-grow flex items-center">
-            <!-- Contenedor de la cuadrícula de aplicaciones -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-
-                <!-- Tarjeta de Aplicación: Transformaciones 2D -->
-                <a href="transformaciones_2D.html" class="card-hover-effect bg-slate-800/50 backdrop-blur-sm p-6 rounded-lg border border-slate-700 flex flex-col no-underline">
-                    <h2 class="text-2xl font-bold text-white mb-2">Transformaciones 2D</h2>
-                    <p class="text-slate-400 flex-grow mb-4">
-                        Visualice cómo una matriz 2x2 transforma el espacio. Explore el determinante, los vectores propios y el kernel de forma interactiva.
-                    </p>
-                    <span class="text-cyan-400 font-semibold self-end">Abrir aplicativo &rarr;</span>
-                </a>
-
-                <!-- Tarjeta de Aplicación: Cambio de Base -->
-                <a href="cambio_de_base.html" class="card-hover-effect bg-slate-800/50 backdrop-blur-sm p-6 rounded-lg border border-slate-700 flex flex-col no-underline">
-                    <h2 class="text-2xl font-bold text-white mb-2">Cambio de Base</h2>
-                    <p class="text-slate-400 flex-grow mb-4">
-                        Manipule los vectores de una nueva base y observe cómo cambian las coordenadas de un vector arbitrario entre la base estándar y la nueva.
-                    </p>
-                    <span class="text-cyan-400 font-semibold self-end">Abrir aplicativo &rarr;</span>
-                </a>
-
-                <!-- Tarjeta de Aplicación: Composición de Transformaciones -->
-                <a href="composiciones.html" class="card-hover-effect bg-slate-800/50 backdrop-blur-sm p-6 rounded-lg border border-slate-700 flex flex-col no-underline">
-                    <h2 class="text-2xl font-bold text-white mb-2">Composición de Transformaciones</h2>
-                    <p class="text-slate-400 flex-grow mb-4">
-                        Aplique dos transformaciones secuencialmente y visualice el resultado. Compruebe que el orden de la multiplicación de matrices importa.
-                    </p>
-                    <span class="text-cyan-400 font-semibold self-end">Abrir aplicativo &rarr;</span>
-                </a>
-
-                <!-- Tarjeta de Aplicación: Transformaciones 3D -->
-                <a href="transformaciones_3D.html" class="card-hover-effect bg-slate-800/50 backdrop-blur-sm p-6 rounded-lg border border-slate-700 flex flex-col no-underline">
-                    <h2 class="text-2xl font-bold text-white mb-2">Transformaciones 3D</h2>
-                    <p class="text-slate-400 flex-grow mb-4">
-                        Una potente herramienta para visualizar transformaciones en tres dimensiones. Analice proyecciones, rotaciones, reflexiones y más.
-                    </p>
-                    <span class="text-cyan-400 font-semibold self-end">Abrir aplicativo &rarr;</span>
-                </a>
-
-                <!-- Tarjeta de Aplicación: Matrices no Cuadradas -->
-                <a href="matrices_no_cuadradas.html" class="card-hover-effect bg-slate-800/50 backdrop-blur-sm p-6 rounded-lg border border-slate-700 flex flex-col no-underline">
-                    <h2 class="text-2xl font-bold text-white mb-2">Matrices no Cuadradas</h2>
-                    <p class="text-slate-400 flex-grow mb-4">
-                        Explore cómo las matrices no cuadradas mapean vectores entre espacios de diferentes dimensiones (ej. de ℝ² a ℝ³).
-                    </p>
-                    <span class="text-cyan-400 font-semibold self-end">Abrir aplicativo &rarr;</span>
-                </a>
-
-                <!-- Tarjeta de Aplicación: Transformaciones no Lineales -->
-                <a href="transformaciones_no_lineales.html" class="card-hover-effect bg-slate-800/50 backdrop-blur-sm p-6 rounded-lg border border-slate-700 flex flex-col no-underline">
-                    <h2 class="text-2xl font-bold text-white mb-2">Transformaciones no Lineales</h2>
-                    <p class="text-slate-400 flex-grow mb-4">
-                        Una vez entendidas las transformaciones lineales, vale la pena comprender cómo se ven algunas que no siguen estas reglas.
-                    </p>
-                    <span class="text-cyan-400 font-semibold self-end">Abrir aplicativo &rarr;</span>
-                </a>
-
+<body class="home" data-title-en="Linear Algebra Laboratory" data-title-es="Laboratorio de Álgebra Lineal">
+    <nav class="site-nav" aria-label="Navegación principal">
+        <div class="site-nav__inner">
+            <a class="site-nav__brand" href="index.html" aria-label="Ir al inicio">
+                <span class="site-nav__mark" aria-hidden="true">λ</span>
+                <span class="site-nav__label">
+                    <span data-en="Linear algebra lab" data-es="Laboratorio lineal">Linear algebra lab</span>
+                    <small data-en="Algebra in motion" data-es="Álgebra en movimiento">Algebra in motion</small>
+                </span>
+            </a>
+            <div class="site-nav__links">
+                <a href="#experimentos" data-en="Experiments" data-es="Experimentos">Experiments</a>
+                <a href="https://github.com/osvo/algebra-lineal" data-en="Code ↗" data-es="Código ↗">Code ↗</a>
             </div>
-        </main>
+        </div>
+    </nav>
 
-        <footer class="text-center">
-            <p class="text-slate-500">Proyecto creado por Juan Camilo Osorio Oviedo</p>
-        </footer>
+    <main>
+        <section class="home-hero">
+            <div>
+                <p class="kicker" data-en="Linear algebra, in plain sight" data-es="Álgebra lineal, a la vista">Linear algebra, in plain sight</p>
+                <h1 data-en="Matrices move, <em>too.</em>" data-es="Las matrices también se <em>mueven.</em>" data-i18n-html>Matrices move, <em>too.</em></h1>
+            </div>
+            <div class="hero-copy">
+                <p data-en="Change a basis, drag a vector, and watch the space respond. Six experiments that turn abstract operations into visible intuition." data-es="Cambia una base, arrastra un vector y observa cómo el espacio responde. Seis experimentos para convertir operaciones abstractas en intuiciones visibles.">
+                    Change a basis, drag a vector, and watch the space respond.
+                    Six experiments that turn abstract operations into visible intuition.
+                </p>
+                <a class="hero-link" href="#experimentos" data-en="Start exploring" data-es="Comenzar el recorrido">Start exploring</a>
+                <p class="inspiration-credit">
+                    <span data-en="Independent project inspired by the visual mathematics of" data-es="Proyecto independiente inspirado en las matemáticas visuales de">Independent project inspired by the visual mathematics of</span>
+                    <a href="https://www.3blue1brown.com/" target="_blank" rel="noreferrer">3Blue1Brown ↗</a>
+                </p>
+            </div>
+        </section>
 
-    </div>
+        <div class="concept-strip" aria-label="Conceptos del laboratorio">
+            <div class="concept-strip__inner">
+                <span data-symbol="A" data-en="Transformations" data-es="Transformaciones">Transformations</span>
+                <span data-symbol="det" data-en="Determinants" data-es="Determinantes">Determinants</span>
+                <span data-symbol="B" data-en="Change of basis" data-es="Cambios de base">Change of basis</span>
+                <span data-symbol="ℝⁿ" data-en="Vector spaces" data-es="Espacios vectoriales">Vector spaces</span>
+            </div>
+        </div>
 
-    <!-- Scripts del fondo de cuadrados -->
-    <script type="text/babel" src="squares.js"></script>
-    <script type="text/babel">
-        ReactDOM.createRoot(document.getElementById('squares-root')).render(
-            <Squares
-                speed={0.1}
-                squareSize={80}
-                direction="diagonal"
-                borderColor="#4a5568"
-                hoverFillColor="#1fabc3"
-            />
-        );
-    </script>
+        <section class="modules" id="experimentos">
+            <div class="section-head">
+                <h2 data-en="Six ways to see the invisible." data-es="Seis formas de ver lo invisible.">Six ways to see the invisible.</h2>
+                <p data-en="Start in the plane, shift your perspective, and finish by breaking linearity. Every module responds immediately to your input." data-es="Empieza por el plano, cambia la perspectiva y termina rompiendo la linealidad. Cada módulo responde de inmediato a tus decisiones.">
+                    Start in the plane, shift your perspective, and finish by breaking
+                    linearity. Every module responds immediately to your input.
+                </p>
+            </div>
 
+            <div class="module-list">
+                <a class="module" href="transformaciones_2D.html">
+                    <span class="module__number" data-en="01 / FOUNDATION" data-es="01 / FUNDAMENTO">01 / FOUNDATION</span>
+                    <h3 data-en="2D transformations" data-es="Transformaciones 2D">2D transformations</h3>
+                    <p data-en="Deform the plane with a 2 × 2 matrix and study its determinant, eigenvectors, image, and kernel." data-es="Deforma el plano con una matriz 2 × 2 y estudia determinante, vectores propios, imagen y kernel.">Deform the plane with a 2 × 2 matrix and study its determinant, eigenvectors, image, and kernel.</p>
+                    <span class="module__arrow" aria-hidden="true">→</span>
+                </a>
+                <a class="module" href="cambio_de_base.html">
+                    <span class="module__number" data-en="02 / COORDINATES" data-es="02 / COORDENADAS">02 / COORDINATES</span>
+                    <h3 data-en="Change of basis" data-es="Cambio de base">Change of basis</h3>
+                    <p data-en="Describe the same vector in two coordinate systems and understand what remains invariant." data-es="Describe el mismo vector desde dos sistemas de coordenadas y comprende qué permanece invariante.">Describe the same vector in two coordinate systems and understand what remains invariant.</p>
+                    <span class="module__arrow" aria-hidden="true">→</span>
+                </a>
+                <a class="module" href="composiciones.html">
+                    <span class="module__number" data-en="03 / ORDER" data-es="03 / ORDEN">03 / ORDER</span>
+                    <h3 data-en="Composition" data-es="Composición">Composition</h3>
+                    <p data-en="Chain two transformations, reverse their order, and see why matrix multiplication does not commute." data-es="Encadena dos transformaciones, invierte su orden y comprueba por qué multiplicar matrices no conmuta.">Chain two transformations, reverse their order, and see why matrix multiplication does not commute.</p>
+                    <span class="module__arrow" aria-hidden="true">→</span>
+                </a>
+                <a class="module" href="transformaciones_3D.html">
+                    <span class="module__number" data-en="04 / SPACE" data-es="04 / ESPACIO">04 / SPACE</span>
+                    <h3 data-en="3D transformations" data-es="Transformaciones 3D">3D transformations</h3>
+                    <p data-en="Rotate, project, and reflect space from different viewpoints with three-dimensional controls." data-es="Rota, proyecta y refleja el espacio desde distintos puntos de vista con controles tridimensionales.">Rotate, project, and reflect space from different viewpoints with three-dimensional controls.</p>
+                    <span class="module__arrow" aria-hidden="true">→</span>
+                </a>
+                <a class="module" href="matrices_no_cuadradas.html">
+                    <span class="module__number" data-en="05 / DIMENSION" data-es="05 / DIMENSIÓN">05 / DIMENSION</span>
+                    <h3 data-en="Non-square matrices" data-es="Matrices no cuadradas">Non-square matrices</h3>
+                    <p data-en="Watch a transformation move between dimensions and see what rank and nullity reveal." data-es="Observa cómo una transformación viaja entre dimensiones y qué dicen el rango y la nulidad del resultado.">Watch a transformation move between dimensions and see what rank and nullity reveal.</p>
+                    <span class="module__arrow" aria-hidden="true">→</span>
+                </a>
+                <a class="module" href="transformaciones_no_lineales.html">
+                    <span class="module__number" data-en="06 / CONTRAST" data-es="06 / CONTRASTE">06 / CONTRAST</span>
+                    <h3 data-en="Nonlinear transformations" data-es="No lineales">Nonlinear transformations</h3>
+                    <p data-en="Compare linear behavior with transformations that bend, ripple, or distort the plane." data-es="Compara el comportamiento lineal con deformaciones que curvan, ondulan o distorsionan el plano.">Compare linear behavior with transformations that bend, ripple, or distort the plane.</p>
+                    <span class="module__arrow" aria-hidden="true">→</span>
+                </a>
+            </div>
+        </section>
+
+        <section class="learning-note">
+            <div class="learning-note__inner">
+                <h2 data-en="Do not memorize first. Manipulate, observe, then name." data-es="No memorices primero. Manipula, observa y luego nombra.">Do not memorize first. Manipulate, observe, then name.</h2>
+                <p data-en="The laboratory is a space for exploration: every control changes a mathematical representation, and every visual turns the result into something you can inspect." data-es="El laboratorio está pensado como una mesa de exploración: cada control modifica una representación matemática y cada gráfico convierte el resultado en una experiencia que puedes inspeccionar.">
+                    The laboratory is a space for exploration: every control changes a
+                    mathematical representation, and every visual turns the result into
+                    something you can inspect.
+                </p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="lab-footer">
+        <div class="lab-footer__inner">
+            <span>© Juan Camilo Osorio Oviedo</span>
+            <a href="https://www.3blue1brown.com/" target="_blank" rel="noreferrer" data-en="Independent project inspired by 3Blue1Brown ↗" data-es="Proyecto independiente inspirado en 3Blue1Brown ↗">Independent project inspired by 3Blue1Brown ↗</a>
+        </div>
+    </footer>
 </body>
 </html>

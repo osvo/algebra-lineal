@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visualizador de Transformaciones No Cuadradas (Estilo 3B1B)</title>
+    <title>Non-square matrix transformation visualizer</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/numeric/1.2.6/numeric.min.js"></script>
     <style>
@@ -46,10 +46,21 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="laboratorio.css">
+    <script src="i18n.js"></script>
 </head>
-<body class="p-4">
+<body class="lab-page p-4" data-title-en="Non-square matrix transformation visualizer" data-title-es="Visualizador de transformaciones con matrices no cuadradas">
+    <nav class="site-nav" aria-label="Navegación principal">
+        <div class="site-nav__inner">
+            <a class="site-nav__brand" href="index.html">
+                <span class="site-nav__mark" aria-hidden="true">λ</span>
+                <span class="site-nav__label"><span>Laboratorio lineal</span><small>Matrices no cuadradas</small></span>
+            </a>
+            <div class="site-nav__links"><a href="index.html#experimentos">Todos los módulos</a><a href="index.html">← Inicio</a></div>
+        </div>
+    </nav>
 
-    <div class="max-w-7xl mx-auto flex flex-col gap-4">
+    <div class="lab-static-root max-w-7xl mx-auto flex flex-col gap-4">
         <h1 class="text-2xl font-bold text-center text-cyan-300">Visualizador de transformaciones con matrices no cuadradas</h1>
 
         <div class="panel md:w-1/2 mx-auto">
@@ -718,17 +729,30 @@
         function updateAnalysis() {
             const rank = getRank(state.matrix);
             const nullity = state.cols - rank;
+            const tr = window.LabI18n.t;
             document.getElementById('rank-value').textContent = rank;
             document.getElementById('nullity-value').textContent = nullity;
 
-            let imageDesc = `Un subespacio de &#x211D;<sup>${state.rows}</sup> de dimensión ${rank}.`;
-            if(rank === 0) imageDesc = "El origen {0}.";
-            else if(rank === state.rows) imageDesc = `Todo el espacio &#x211D;<sup>${state.rows}</sup>.`;
+            let imageDesc = tr(
+                `A subspace of &#x211D;<sup>${state.rows}</sup> with dimension ${rank}.`,
+                `Un subespacio de &#x211D;<sup>${state.rows}</sup> de dimensión ${rank}.`
+            );
+            if(rank === 0) imageDesc = tr("The origin {0}.", "El origen {0}.");
+            else if(rank === state.rows) imageDesc = tr(
+                `The entire space &#x211D;<sup>${state.rows}</sup>.`,
+                `Todo el espacio &#x211D;<sup>${state.rows}</sup>.`
+            );
             document.getElementById('image-value').innerHTML = imageDesc;
 
-            let kernelDesc = `Un subespacio de &#x211D;<sup>${state.cols}</sup> de dimensión ${nullity}.`;
-            if (nullity === 0) kernelDesc = "Solo el origen {0}.";
-            else if (nullity === state.cols) kernelDesc = `Todo el espacio de entrada &#x211D;<sup>${state.cols}</sup>.`;
+            let kernelDesc = tr(
+                `A subspace of &#x211D;<sup>${state.cols}</sup> with dimension ${nullity}.`,
+                `Un subespacio de &#x211D;<sup>${state.cols}</sup> de dimensión ${nullity}.`
+            );
+            if (nullity === 0) kernelDesc = tr("Only the origin {0}.", "Solo el origen {0}.");
+            else if (nullity === state.cols) kernelDesc = tr(
+                `The entire input space &#x211D;<sup>${state.cols}</sup>.`,
+                `Todo el espacio de entrada &#x211D;<sup>${state.cols}</sup>.`
+            );
             document.getElementById('kernel-value').innerHTML = kernelDesc;
 
             if (state.useArbitraryVector && state.transformedVector) {

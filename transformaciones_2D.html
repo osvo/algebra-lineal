@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visualizador de transformaciones lineales en dos dimensiones</title>
+    <title>2D linear transformation visualizer</title>
     <!-- Tailwind CSS para un diseño moderno y responsivo -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- React y ReactDOM -->
@@ -27,8 +27,19 @@
             font-weight: bold;
         }
     </style>
+    <link rel="stylesheet" href="laboratorio.css">
+    <script src="i18n.js"></script>
 </head>
-<body class="bg-gray-900 text-white font-sans flex items-center justify-center min-h-screen p-4">
+<body class="lab-page bg-gray-900 text-white font-sans flex items-center justify-center min-h-screen p-4" data-title-en="2D linear transformation visualizer" data-title-es="Visualizador de transformaciones lineales en dos dimensiones">
+    <nav class="site-nav" aria-label="Navegación principal">
+        <div class="site-nav__inner">
+            <a class="site-nav__brand" href="index.html">
+                <span class="site-nav__mark" aria-hidden="true">λ</span>
+                <span class="site-nav__label"><span>Laboratorio lineal</span><small>Transformaciones 2D</small></span>
+            </a>
+            <div class="site-nav__links"><a href="index.html#experimentos">Todos los módulos</a><a href="index.html">← Inicio</a></div>
+        </div>
+    </nav>
     <div id="app"></div>
 
     <script type="text/babel">
@@ -57,7 +68,7 @@
         class Fraction {
             constructor(numerator, denominator = 1) {
                 if (denominator === 0) throw new Error("Denominator cannot be zero.");
-                
+
                 if (!Number.isInteger(numerator) || !Number.isInteger(denominator)) {
                     const tolerance = 1.0E-9;
                     let h1 = 1, h2 = 0, k1 = 0, k2 = 1;
@@ -86,7 +97,7 @@
                     this.den *= -1;
                 }
             }
-            
+
             mul(other) { return new Fraction(this.num * other.num, this.den * other.den); }
             sub(other) { return new Fraction(this.num * other.den - other.num * this.den, this.den * other.den); }
             reciprocal() { return new Fraction(this.den, this.num); }
@@ -136,7 +147,7 @@
             ctx.moveTo(x + s / 2, y); ctx.lineTo(x + s * 1.5, y); ctx.moveTo(x - s / 2, y); ctx.lineTo(x - s * 1.5, y);
             ctx.stroke();
         }
-        
+
         /** Multiplica una matriz 2x2 por un vector 2D */
         function multiplyMatrixVector(matrix, vector) {
             const [a, b] = matrix[0]; const [c, d] = matrix[1]; const [x, y] = vector;
@@ -255,12 +266,12 @@
 
         const CanvasComponent = React.memo(function CanvasComponent({ t, options, scale, vectors, onVectorsChange, analysis }) {
             const canvasRef = React.useRef(null); const [dragTarget, setDragTarget] = React.useState(null);
-            
+
             const getMousePos = React.useCallback((event) => {
                 const canvas = canvasRef.current;
                 if (!canvas) return { x: 0, y: 0 };
                 const rect = canvas.getBoundingClientRect();
-                
+
                 if (rect.width === 0 || rect.height === 0) {
                     return { x: 0, y: 0 };
                 }
@@ -307,7 +318,7 @@
                 ctx.lineWidth = 0.04;
                 const gridColor = (options.showKernel && analysis.rank === 0) ? '#a855f7' : '#1fabc3'; ctx.strokeStyle = gridColor;
                 for (let i = -20; i <= 20; i++) { ctx.beginPath(); ctx.moveTo(...multiplyMatrixVector(m, [i, -20])); ctx.lineTo(...multiplyMatrixVector(m, [i, 20])); ctx.stroke(); ctx.beginPath(); ctx.moveTo(...multiplyMatrixVector(m, [-20, i])); ctx.lineTo(...multiplyMatrixVector(m, [20, i])); ctx.stroke(); }
-                
+
                 const drawSubspaceField = (vectors, color) => {
                     ctx.strokeStyle = color;
                     ctx.fillStyle = color;
@@ -317,7 +328,7 @@
                     vectors.forEach(v => {
                         const [vx, vy] = v;
                         if (Math.abs(vx) < TOLERANCE && Math.abs(vy) < TOLERANCE) return;
-                        
+
                         const transformedV = multiplyMatrixVector(m, v);
 
                         // Dibuja una sucesión de flechas desde el origen para formar la línea
@@ -340,7 +351,7 @@
                         ctx.fill();
                     }
                 }
-                
+
                 if (options.showEigenvectors && analysis.eigenvectors && !analysis.isComplex) {
                     drawSubspaceField(analysis.eigenvectors, '#fbbf24');
                 }

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visualizador de Cambio de Base</title>
+    <title>Change of basis visualizer</title>
     <!-- Tailwind CSS para un diseño moderno y responsivo -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- React y ReactDOM -->
@@ -27,8 +27,19 @@
             font-weight: bold;
         }
     </style>
+    <link rel="stylesheet" href="laboratorio.css">
+    <script src="i18n.js"></script>
 </head>
-<body class="bg-gray-900 text-white font-sans flex items-center justify-center min-h-screen p-4">
+<body class="lab-page bg-gray-900 text-white font-sans flex items-center justify-center min-h-screen p-4" data-title-en="Change of basis visualizer" data-title-es="Visualizador de Cambio de Base">
+    <nav class="site-nav" aria-label="Navegación principal">
+        <div class="site-nav__inner">
+            <a class="site-nav__brand" href="index.html">
+                <span class="site-nav__mark" aria-hidden="true">λ</span>
+                <span class="site-nav__label"><span>Laboratorio lineal</span><small>Cambio de base</small></span>
+            </a>
+            <div class="site-nav__links"><a href="index.html#experimentos">Todos los módulos</a><a href="index.html">← Inicio</a></div>
+        </div>
+    </nav>
     <div id="app"></div>
 
     <script type="text/babel">
@@ -56,7 +67,7 @@
         class Fraction {
             constructor(numerator, denominator = 1) {
                 if (denominator === 0) throw new Error("Denominator cannot be zero.");
-                
+
                 if (!Number.isInteger(numerator) || !Number.isInteger(denominator)) {
                     const tolerance = 1.0E-9;
                     let h1 = 1, h2 = 0, k1 = 0, k2 = 1;
@@ -85,7 +96,7 @@
                     this.den *= -1;
                 }
             }
-            
+
             mul(other) { return new Fraction(this.num * other.num, this.den * other.den); }
             sub(other) { return new Fraction(this.num * other.den - other.num * this.den, this.den * other.den); }
             reciprocal() { return new Fraction(this.den, this.num); }
@@ -119,7 +130,7 @@
             ctx.moveTo(x + s / 2, y); ctx.lineTo(x + s * 1.5, y); ctx.moveTo(x - s / 2, y); ctx.lineTo(x - s * 1.5, y);
             ctx.stroke();
         }
-        
+
         function multiplyMatrixVector(matrix, vector) {
             const [a, b] = matrix[0]; const [c, d] = matrix[1]; const [x, y] = vector;
             return [a * x + b * y, c * x + d * y];
@@ -143,12 +154,12 @@
 
         const CanvasComponent = React.memo(function CanvasComponent({ options, scale, vectors, onVectorsChange, analysis }) {
             const canvasRef = React.useRef(null); const [dragTarget, setDragTarget] = React.useState(null);
-            
+
             const getMousePos = React.useCallback((event) => {
                 const canvas = canvasRef.current;
                 if (!canvas) return { x: 0, y: 0 };
                 const rect = canvas.getBoundingClientRect();
-                
+
                 if (rect.width === 0 || rect.height === 0) return { x: 0, y: 0 };
 
                 const xRatio = scale * rect.width / canvas.width;
@@ -166,7 +177,7 @@
                 const d1 = Math.hypot(pos.x - vectors.b1.x, pos.y - vectors.b1.y);
                 const d2 = Math.hypot(pos.x - vectors.b2.x, pos.y - vectors.b2.y);
                 const d3 = options.showInOutVector ? Math.hypot(pos.x - vectors.vector.x, pos.y - vectors.vector.y) : Infinity;
-                
+
                 const minDist = Math.min(d1, d2, d3);
                 if (minDist < 0.5) {
                     if (minDist === d1) setDragTarget('b1');
@@ -177,7 +188,7 @@
             }, [getMousePos, vectors, options.showInOutVector]);
 
             const handlePointerUp = React.useCallback((event) => { setDragTarget(null); event.target.releasePointerCapture(event.pointerId); }, []);
-            
+
             const handlePointerMove = React.useCallback((event) => {
                 if (!dragTarget) return;
                 let pos = getMousePos(event);
@@ -194,7 +205,7 @@
 
                 const { b1, b2 } = vectors;
                 const { newCoords } = analysis.basis;
-                
+
                 // Dibujar rejilla de la nueva base
                 ctx.strokeStyle = '#1fabc3';
                 for (let i = -20; i <= 20; i++) {
@@ -207,7 +218,7 @@
                     ctx.lineTo(i * b2.x + 20 * b1.x, i * b2.y + 20 * b1.y);
                     ctx.stroke();
                 }
-                
+
                 // Dibujar ejes estándar (tenues)
                 ctx.strokeStyle = '#4a5568'; ctx.lineWidth = 0.02;
                 ctx.beginPath(); ctx.moveTo(-20, 0); ctx.lineTo(20, 0); ctx.stroke();
@@ -266,7 +277,7 @@
             const FractionalNumber = ({ value }) => (<span className="font-mono text-sm text-center">{value.toString()}</span>);
             const Bracket = ({ side, heightClass = "h-16" }) => <div className={`w-2 ${heightClass} border-gray-500 ${side === 'left' ? 'border-l-2 border-t-2 border-b-2 rounded-l-md' : 'border-r-2 border-t-2 border-b-2 rounded-r-md'}`}></div>;
             const VectorLabel = ({ letter, colorClass }) => <div className={`text-xl font-bold italic vector-arrow ${colorClass}`}>{letter}</div>;
-            
+
             return (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
                     <div className="flex flex-col items-center justify-center gap-4">
@@ -329,9 +340,9 @@
 
         function App() {
             const [options, setOptions] = React.useState({ showInOutVector: false });
-            const [vectors, setVectors] = React.useState({ 
+            const [vectors, setVectors] = React.useState({
                 b1: { x: 2, y: 1 }, b2: { x: -1, y: 1 },
-                vector: { x: 1, y: 1 } 
+                vector: { x: 1, y: 1 }
             });
 
             const analysis = React.useMemo(() => {
@@ -345,11 +356,11 @@
                 };
             }, [vectors]);
 
-            const handleReset = React.useCallback(() => { 
-                setVectors({ 
+            const handleReset = React.useCallback(() => {
+                setVectors({
                     b1: { x: 2, y: 1 }, b2: { x: -1, y: 1 },
-                    vector: { x: 1, y: 1 } 
-                }); 
+                    vector: { x: 1, y: 1 }
+                });
             }, []);
             const handleOptionChange = React.useCallback((e) => { const { name, checked } = e.target; setOptions(prev => ({ ...prev, [name]: checked })); }, []);
 

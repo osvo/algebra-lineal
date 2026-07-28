@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visualizador de transformaciones no-lineales en dos dimensiones</title>
+    <title>2D nonlinear transformation visualizer</title>
     <!-- Tailwind CSS para un diseño moderno y responsivo -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- React y ReactDOM -->
@@ -27,8 +27,19 @@
             font-weight: bold;
         }
     </style>
+    <link rel="stylesheet" href="laboratorio.css">
+    <script src="i18n.js"></script>
 </head>
-<body class="bg-gray-900 text-white font-sans flex items-center justify-center min-h-screen p-4">
+<body class="lab-page bg-gray-900 text-white font-sans flex items-center justify-center min-h-screen p-4" data-title-en="2D nonlinear transformation visualizer" data-title-es="Visualizador de transformaciones no-lineales en dos dimensiones">
+    <nav class="site-nav" aria-label="Navegación principal">
+        <div class="site-nav__inner">
+            <a class="site-nav__brand" href="index.html">
+                <span class="site-nav__mark" aria-hidden="true">λ</span>
+                <span class="site-nav__label"><span>Laboratorio lineal</span><small>Transformaciones no lineales</small></span>
+            </a>
+            <div class="site-nav__links"><a href="index.html#experimentos">Todos los módulos</a><a href="index.html">← Inicio</a></div>
+        </div>
+    </nav>
     <div id="app"></div>
 
     <script type="text/babel">

@@ -353,7 +353,7 @@ createLab({
         const fit = state.model === 'affine' ? `y = ${texValue(coef[0])} ${signed(texValue(coef[1]))}\\,x` : `y = ${texValue(coef[0])}\\,x`;
         setR(2, { es: 'Mejor ajuste', en: 'Best fit' }, `\\hat{\\mathbf{x}} = ${texVector(coef)},\\qquad ${cls('c-w', fit)}`);
         setR(3, { es: 'Residuo', en: 'Residual' }, `\\mathbf{e} = \\mathbf{b} - A\\hat{\\mathbf{x}} = ${cls('c-res', texVector(res))},\\qquad \\lVert\\mathbf{e}\\rVert^2 = ${texValue(e2)}`,
-          { es: 'Es la suma de los cuadrados de los segmentos rosados: ninguna otra recta la hace más pequeña.', en: 'It is the sum of the squares of the pink segments: no other line makes it smaller.' });
+          { es: 'Es la suma de los cuadrados de los segmentos rosados: ninguna otra elección de coeficientes la hace más pequeña.', en: 'It is the sum of the squares of the pink segments: no other choice of coefficients makes it smaller.' });
         setR(4, { es: 'Ortogonalidad', en: 'Orthogonality' }, `A^{\\mathsf T}\\mathbf{e} = ${texVector(L.matVec(At, res, G))}`,
           { es: 'El residuo es perpendicular a cada columna de A, es decir, al espacio columna: Ax̂ es la proyección ortogonal de b.', en: 'The residual is perpendicular to every column of A, i.e. to the column space: Ax̂ is the orthogonal projection of b.' });
       } else {

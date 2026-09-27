@@ -367,3 +367,20 @@ export function makeEntry(text) {
 }
 
 export function entryFromNumber(x) { return makeEntry(numberToInput(x)); }
+
+/** Human-readable {es, en} description of a parser error code. */
+export function describeParseError(code = 'syntax') {
+  const [kind, detail] = String(code).split(':');
+  const M = {
+    empty: { es: 'La celda está vacía.', en: 'The cell is empty.' },
+    end: { es: 'La expresión está incompleta.', en: 'The expression is incomplete.' },
+    trailing: { es: 'Sobra algo al final de la expresión.', en: 'There is something extra at the end.' },
+    nan: { es: 'El resultado no es un número finito (¿división por cero?).', en: 'The result is not a finite number (division by zero?).' },
+    unknown: { es: `No reconozco «${detail}». Disponibles: sqrt, sin, cos, tan, exp, ln, abs, pi, e (y x, y en las fórmulas).`, en: `Unknown name “${detail}”. Available: sqrt, sin, cos, tan, exp, ln, abs, pi, e (and x, y in formulas).` },
+    char: { es: `Carácter no válido «${detail}».`, en: `Invalid character “${detail}”.` },
+    expected: { es: 'Falta cerrar un paréntesis o una barra de valor absoluto.', en: 'A parenthesis or absolute-value bar is not closed.' },
+    unexpected: { es: 'Hay un operador fuera de lugar.', en: 'There is a misplaced operator.' },
+  };
+  if (kind.startsWith('expected')) return M.expected;
+  return M[kind] || { es: 'Expresión no válida.', en: 'Invalid expression.' };
+}

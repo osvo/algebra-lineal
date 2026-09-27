@@ -487,8 +487,8 @@ createLab({
         kind: 'remark',
         title: { es: 'Filas y columnas', en: 'Rows and columns' },
         body: {
-          es: '<p>$A\\mathbf{x} = \\mathbf{b}$ tiene solución $\\iff \\mathbf{b}\\in\\operatorname{Im}A = \\operatorname{gen}\\{\\mathbf{a}_1,\\dots,\\mathbf{a}_n\\}$ (imagen de columnas). Para $A$ cuadrada, la solución es única para todo $\\mathbf{b}$ $\\iff \\det A \\neq 0$ $\\iff$ las $n$ rectas o hiperplanos no son «degenerados» $\\iff$ las columnas son una base.</p>',
-          en: '<p>$A\\mathbf{x} = \\mathbf{b}$ has a solution $\\iff \\mathbf{b}\\in\\operatorname{Im}A = \\operatorname{span}\\{\\mathbf{a}_1,\\dots,\\mathbf{a}_n\\}$ (column picture). For square $A$, the solution is unique for every $\\mathbf{b}$ $\\iff \\det A \\neq 0$ $\\iff$ the $n$ lines or hyperplanes are not “degenerate” $\\iff$ the columns form a basis.</p>',
+          es: '<p>$A\\mathbf{x} = \\mathbf{b}$ tiene solución $\\iff \\mathbf{b}\\in\\operatorname{Im}A = \\operatorname{gen}\\{\\mathbf{a}_1,\\dots,\\mathbf{a}_n\\}$ (imagen de columnas). Para $A$ cuadrada, la solución es única para todo $\\mathbf{b}$ $\\iff \\det A \\neq 0$ $\\iff$ los $n$ hiperplanos de la imagen de filas se cortan en un único punto $\\iff$ las columnas son una base.</p>',
+          en: '<p>$A\\mathbf{x} = \\mathbf{b}$ has a solution $\\iff \\mathbf{b}\\in\\operatorname{Im}A = \\operatorname{span}\\{\\mathbf{a}_1,\\dots,\\mathbf{a}_n\\}$ (column picture). For square $A$, the solution is unique for every $\\mathbf{b}$ $\\iff \\det A \\neq 0$ $\\iff$ the $n$ hyperplanes of the row picture meet in a single point $\\iff$ the columns form a basis.</p>',
         },
       },
     ],

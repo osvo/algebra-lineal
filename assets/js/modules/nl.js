@@ -4,7 +4,7 @@ import { Plane2D } from '../ui/plane2d.js';
 import { card, flagChip, readout, animator, selectBox, slider, button } from '../ui/controls.js';
 import { h } from '../ui/dom.js';
 import { tr, setText, setAttr } from '../ui/i18n.js';
-import { compileFormula } from '../core/parse.js';
+import { compileFormula, describeParseError } from '../core/parse.js';
 import { renderTex } from '../ui/tex.js';
 import { texFloat, texMatrix, texVector, fmtDecimal, cls } from '../core/format.js';
 import * as L from '../core/linalg.js';
@@ -214,7 +214,7 @@ createLab({
       customBox.hidden = !isCustom;
       if (document.activeElement !== in1) in1.value = state.f1;
       if (document.activeElement !== in2) in2.value = state.f2;
-      err.textContent = isCustom && custom.error ? tr({ es: `Error en la fórmula (${custom.error}).`, en: `Formula error (${custom.error}).` }) : '';
+      err.textContent = isCustom && custom.error ? tr(describeParseError(custom.error)) : '';
       formula.hidden = isCustom;
       if (!isCustom) renderTex(formula, PRESETS[state.preset].tex, { display: true });
       if (!T) {

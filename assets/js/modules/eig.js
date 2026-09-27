@@ -86,8 +86,8 @@ createLab({
   build(ctx) {
     const { store } = ctx;
     const plane = new Plane2D(ctx.addView(), { range: 4 });
-    const animSearch = animator({ store, key: 'theta', max: 360 });
-    const animDyn = animator({ store, key: 'k', max: 30 });
+    const animSearch = animator({ store, key: 'theta', max: 360, labelTex: '\\theta', format: (v) => `${Math.round(v)}°` });
+    const animDyn = animator({ store, key: 'k', max: 30, labelTex: 'k', format: (v) => v.toFixed(1) });
     const animDiag = animator({ store, key: 't', max: 3 });
     ctx.bar.append(animSearch.el, animDyn.el, animDiag.el);
     const diagStages = h('div', { class: 'anim__stages', style: { gridColumn: '1 / -1' } });
@@ -270,10 +270,20 @@ createLab({
       const et = eigenTex(eig);
       r.val.set(et.values, et.complex.length ? { es: `|λ| = ${fmtDecimal(Math.hypot(et.complex[0].approx.re, et.complex[0].approx.im), 4)}, arg λ = ±${fmtDecimal((Math.abs(Math.atan2(et.complex[0].approx.im, et.complex[0].approx.re)) * 180) / Math.PI, 2)}°`, en: `|λ| = ${fmtDecimal(Math.hypot(et.complex[0].approx.re, et.complex[0].approx.im), 4)}, arg λ = ±${fmtDecimal((Math.abs(Math.atan2(et.complex[0].approx.im, et.complex[0].approx.re)) * 180) / Math.PI, 2)}°` } : null);
       if (et.reals.length) { r.vec.set(eigenvectorTex(eig), defectiveNote(eig)); r.vec.show(true); } else r.vec.show(false);
-      const lam = eig.eigen.flatMap((e) => Array(e.alg).fill(e.approx));
-      if (lam.length === 2) {
-        const sum = lam[0].re + lam[1].re, prod = lam[0].re * lam[1].re - lam[0].im * lam[1].im;
-        r.check.set(`\\lambda_1 + \\lambda_2 = ${fmtDecimal(sum, 4, { unicodeMinus: false })} = \\operatorname{tr}A,\\qquad \\lambda_1\\lambda_2 = ${fmtDecimal(prod, 4, { unicodeMinus: false })} = \\det A`);
+      const lamE = eig.eigen.flatMap((e) => Array(e.alg).fill(e));
+      if (lamE.length === 2) {
+        let sumTex, prodTex;
+        const [e1, e2] = lamE;
+        if (eig.exact && e1.field === e2.field) {
+          const F = e1.field;
+          sumTex = texValue(F.add(e1.value, e2.value));
+          prodTex = texValue(F.mul(e1.value, e2.value));
+        } else {
+          const a = e1.approx, b = e2.approx;
+          sumTex = texValue(a.re + b.re);
+          prodTex = texValue(a.re * b.re - a.im * b.im);
+        }
+        r.check.set(`\\lambda_1 + \\lambda_2 = ${sumTex} = \\operatorname{tr}A,\\qquad \\lambda_1\\lambda_2 = ${prodTex} = \\det A`);
       }
       r.dyn.set({ html: `<span class="badge">${tr(classify(eig))}</span>` });
       if (dec) {

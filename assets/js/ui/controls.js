@@ -3,7 +3,7 @@
 
 import { h, icon, clamp } from './dom.js';
 import { tr, setText, setAttr, onLangChange } from './i18n.js';
-import { makeEntry, numberToInput } from '../core/parse.js';
+import { makeEntry, numberToInput, describeParseError } from '../core/parse.js';
 import { renderTex } from './tex.js';
 
 const COL_VARS = ['var(--c-i)', 'var(--c-j)', 'var(--c-k)', 'var(--c-w)'];
@@ -41,7 +41,8 @@ export function matrixEditor({ rows, cols, get, set, colColors = COL_VARS, label
     const entries = get().map((row) => row.slice());
     const e = makeEntry(text);
     inputs[i][j].setAttribute('aria-invalid', String(!e.ok));
-    if (!e.ok) return;
+    if (!e.ok) { inputs[i][j].title = tr(describeParseError(e.error)); return; }
+    inputs[i][j].removeAttribute('title');
     entries[i][j] = e;
     set(entries);
   }
@@ -238,7 +239,7 @@ export function readout(label, { block = false, labelTex = null } = {}) {
  * Animation of a parameter t ∈ [0, max] stored in store[key].
  * stages: optional [{ from, to, label }] shown under the controls.
  */
-export function animator({ store, key = 't', max = 1, stages = null, speed = 1 }) {
+export function animator({ store, key = 't', max = 1, stages = null, speed = 1, labelTex = 't', format = (x) => x.toFixed(2) }) {
   let playing = false;
   let loop = false;
   let rate = speed;
@@ -250,9 +251,10 @@ export function animator({ store, key = 't', max = 1, stages = null, speed = 1 }
   setAttr(loopBtn, 'aria-label', { es: 'Repetir', en: 'Loop' });
   setAttr(loopBtn, 'title', { es: 'Repetir', en: 'Loop' });
   const tSlider = slider({
-    label: { es: 't', en: 't' }, labelTex: 't', min: 0, max, step: 0.005,
+    label: { es: 'Parámetro de la animación', en: 'Animation parameter' }, labelTex, min: 0, max, step: max > 20 ? 0.5 : 0.005,
     get: () => store.get(key),
     set: (v) => { pause(); store.set({ [key]: v }); },
+    format,
   });
   const speedSlider = slider({
     label: { es: 'Velocidad', en: 'Speed' }, min: 0.25, max: 3, step: 0.25,

@@ -10,7 +10,7 @@ export const CHAPTERS = [
 
 export const MODULES = [
   {
-    id: 't2d', file: 'transformaciones_2D.html', chapter: 'transform',
+    id: 't2d', file: 'transformaciones_2D.html', chapter: 'transform', challenges: 5,
     title: { es: 'Transformaciones 2D', en: '2D transformations' },
     tag: { es: 'Fundamento', en: 'Foundation' },
     blurb: {
@@ -19,7 +19,7 @@ export const MODULES = [
     },
   },
   {
-    id: 'comp', file: 'composiciones.html', chapter: 'transform',
+    id: 'comp', file: 'composiciones.html', chapter: 'transform', challenges: 4,
     title: { es: 'Composición', en: 'Composition' },
     tag: { es: 'Orden', en: 'Order' },
     blurb: {
@@ -28,7 +28,7 @@ export const MODULES = [
     },
   },
   {
-    id: 't3d', file: 'transformaciones_3D.html', chapter: 'transform',
+    id: 't3d', file: 'transformaciones_3D.html', chapter: 'transform', challenges: 4,
     title: { es: 'Transformaciones 3D', en: '3D transformations' },
     tag: { es: 'Espacio', en: 'Space' },
     blurb: {
@@ -37,7 +37,7 @@ export const MODULES = [
     },
   },
   {
-    id: 'sys', file: 'sistemas_lineales.html', chapter: 'systems', isNew: true,
+    id: 'sys', file: 'sistemas_lineales.html', chapter: 'systems', challenges: 4, isNew: true,
     title: { es: 'Sistemas Ax = b', en: 'Systems Ax = b' },
     tag: { es: 'Eliminación', en: 'Elimination' },
     blurb: {
@@ -46,7 +46,7 @@ export const MODULES = [
     },
   },
   {
-    id: 'nsq', file: 'matrices_no_cuadradas.html', chapter: 'systems',
+    id: 'nsq', file: 'matrices_no_cuadradas.html', chapter: 'systems', challenges: 4,
     title: { es: 'Matrices no cuadradas', en: 'Non-square matrices' },
     tag: { es: 'Dimensión', en: 'Dimension' },
     blurb: {
@@ -55,7 +55,7 @@ export const MODULES = [
     },
   },
   {
-    id: 'cob', file: 'cambio_de_base.html', chapter: 'spectral',
+    id: 'cob', file: 'cambio_de_base.html', chapter: 'spectral', challenges: 4,
     title: { es: 'Cambio de base', en: 'Change of basis' },
     tag: { es: 'Coordenadas', en: 'Coordinates' },
     blurb: {
@@ -64,7 +64,7 @@ export const MODULES = [
     },
   },
   {
-    id: 'eig', file: 'valores_propios.html', chapter: 'spectral', isNew: true,
+    id: 'eig', file: 'valores_propios.html', chapter: 'spectral', challenges: 4, isNew: true,
     title: { es: 'Valores propios y dinámica', en: 'Eigenvalues and dynamics' },
     tag: { es: 'Espectro', en: 'Spectrum' },
     blurb: {
@@ -73,7 +73,7 @@ export const MODULES = [
     },
   },
   {
-    id: 'orth', file: 'ortogonalidad.html', chapter: 'geometry', isNew: true,
+    id: 'orth', file: 'ortogonalidad.html', chapter: 'geometry', challenges: 4, isNew: true,
     title: { es: 'Ortogonalidad', en: 'Orthogonality' },
     tag: { es: 'Proyección', en: 'Projection' },
     blurb: {
@@ -82,7 +82,7 @@ export const MODULES = [
     },
   },
   {
-    id: 'svd', file: 'svd.html', chapter: 'geometry', isNew: true,
+    id: 'svd', file: 'svd.html', chapter: 'geometry', challenges: 4, isNew: true,
     title: { es: 'Descomposición en valores singulares', en: 'Singular value decomposition' },
     short: { es: 'SVD', en: 'SVD' },
     tag: { es: 'Factorización', en: 'Factorization' },
@@ -92,7 +92,7 @@ export const MODULES = [
     },
   },
   {
-    id: 'nl', file: 'transformaciones_no_lineales.html', chapter: 'beyond',
+    id: 'nl', file: 'transformaciones_no_lineales.html', chapter: 'beyond', challenges: 4,
     title: { es: 'Transformaciones no lineales', en: 'Nonlinear transformations' },
     tag: { es: 'Contraste', en: 'Contrast' },
     blurb: {

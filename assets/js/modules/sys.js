@@ -197,7 +197,7 @@ createLab({
       const n = +state.n;
       const el = ctx.addView();
       if (n === 2) {
-        view = new Plane2D(el, { range: 4.5 });
+        view = new Plane2D(el, { range: 5.5 });
         view.setDraw((g) => cur && draw2D(g, cur));
       } else {
         view = new Scene3D(el, { extent: 5, frustum: 12 });

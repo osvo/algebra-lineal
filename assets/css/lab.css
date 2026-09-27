@@ -504,6 +504,7 @@ body.presenting .present-exit { display: inline-flex; }
 .learning-note__inner { width: var(--width); min-height: 300px; margin: 0 auto; padding: 64px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; }
 .learning-note h2 { margin: 0; font-size: clamp(40px, 6vw, 72px); letter-spacing: -.06em; line-height: .96; }
 .learning-note p { margin: 0; font-size: 17px; line-height: 1.7; }
+.hero-copy .credit { margin: 22px 0 0; font-size: 11px; line-height: 1.6; }
 .credit { margin-top: 20px; color: var(--faint); font-family: var(--font-mono); font-size: 11px; }
 .credit a { color: var(--muted); }
 

@@ -1,449 +1,75 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="es" data-loading>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="An interactive laboratory for exploring transformations, bases, matrices, and vector spaces visually." data-en="An interactive laboratory for exploring transformations, bases, matrices, and vector spaces visually." data-es="Laboratorio interactivo para explorar transformaciones, bases, matrices y espacios vectoriales de forma visual.">
-    <meta property="og:type" content="website">
-    <meta property="og:title" content="Linear Algebra Laboratory" data-en="Linear Algebra Laboratory" data-es="Laboratorio de Álgebra Lineal">
-    <meta property="og:description" content="Matrices move, too. Six experiments that turn abstract operations into visible intuition." data-en="Matrices move, too. Six experiments that turn abstract operations into visible intuition." data-es="Las matrices también se mueven. Seis experimentos para convertir operaciones abstractas en intuiciones visibles.">
-    <meta property="og:url" content="https://osvo.github.io/algebra-lineal/">
-    <meta property="og:image" content="https://osvo.github.io/algebra-lineal/og-en.png" data-en="https://osvo.github.io/algebra-lineal/og-en.png" data-es="https://osvo.github.io/algebra-lineal/og.png">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Linear Algebra Laboratory" data-en="Linear Algebra Laboratory" data-es="Laboratorio de Álgebra Lineal">
-    <meta name="twitter:description" content="Matrices move, too. Explore linear algebra visually." data-en="Matrices move, too. Explore linear algebra visually." data-es="Las matrices también se mueven. Explora álgebra lineal de forma visual.">
-    <meta name="twitter:image" content="https://osvo.github.io/algebra-lineal/og-en.png" data-en="https://osvo.github.io/algebra-lineal/og-en.png" data-es="https://osvo.github.io/algebra-lineal/og.png">
-    <title>Linear Algebra Laboratory</title>
-    <link rel="stylesheet" href="laboratorio.css">
-    <script src="i18n.js"></script>
-    <style>
-        .home {
-            --home-width: min(100% - 32px, 1240px);
-            overflow-x: hidden;
-        }
-
-        .home-hero {
-            width: var(--home-width);
-            margin: 0 auto;
-            min-height: 660px;
-            padding: 82px 0 72px;
-            display: grid;
-            grid-template-columns: minmax(0, 1.25fr) minmax(300px, .75fr);
-            gap: 80px;
-            align-items: center;
-        }
-
-        .kicker {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin: 0 0 30px;
-            color: var(--acid);
-            font-family: var(--font-mono);
-            font-size: 11px;
-            font-weight: 600;
-            letter-spacing: .12em;
-            text-transform: uppercase;
-        }
-
-        .kicker::before {
-            content: "";
-            width: 36px;
-            height: 1px;
-            background: currentColor;
-        }
-
-        .home-hero h1 {
-            max-width: 780px;
-            margin: 0;
-            color: var(--paper);
-            font-size: clamp(58px, 8.2vw, 118px);
-            font-weight: 700;
-            letter-spacing: -.07em;
-            line-height: .86;
-        }
-
-        .home-hero h1 em {
-            color: var(--acid);
-            font-family: Georgia, serif;
-            font-weight: 400;
-        }
-
-        .hero-copy {
-            align-self: end;
-            padding-bottom: 8px;
-        }
-
-        .hero-copy p {
-            margin: 0 0 30px;
-            color: #c5cbc6;
-            font-size: 18px;
-            line-height: 1.65;
-        }
-
-        .inspiration-credit {
-            margin-top: 22px !important;
-            color: var(--muted) !important;
-            font-family: var(--font-mono);
-            font-size: 11px !important;
-            letter-spacing: .02em;
-        }
-
-        .inspiration-credit a {
-            color: var(--paper);
-            text-underline-offset: 4px;
-        }
-
-        .inspiration-credit a:hover {
-            color: var(--acid);
-        }
-
-        .hero-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 18px;
-            color: var(--paper);
-            text-decoration: none;
-            font-family: var(--font-mono);
-            font-size: 12px;
-            letter-spacing: .05em;
-            text-transform: uppercase;
-        }
-
-        .hero-link::after {
-            content: "↘";
-            width: 38px;
-            height: 38px;
-            display: grid;
-            place-items: center;
-            border: 1px solid var(--acid);
-            color: var(--acid);
-            font-size: 18px;
-        }
-
-        .hero-link:hover {
-            color: var(--acid);
-        }
-
-        .concept-strip {
-            border-top: 1px solid var(--line);
-            border-bottom: 1px solid var(--line);
-        }
-
-        .concept-strip__inner {
-            width: var(--home-width);
-            min-height: 86px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-        }
-
-        .concept-strip span {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            color: var(--muted);
-            font-family: var(--font-mono);
-            font-size: 11px;
-            letter-spacing: .08em;
-            text-transform: uppercase;
-        }
-
-        .concept-strip span::before {
-            content: attr(data-symbol);
-            color: var(--coral);
-            font-family: Georgia, serif;
-            font-size: 22px;
-            text-transform: none;
-        }
-
-        .modules {
-            width: var(--home-width);
-            margin: 0 auto;
-            padding: 112px 0 128px;
-        }
-
-        .section-head {
-            margin-bottom: 58px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 40px;
-            align-items: end;
-        }
-
-        .section-head h2 {
-            margin: 0;
-            font-size: clamp(42px, 6vw, 76px);
-            letter-spacing: -.055em;
-            line-height: .95;
-        }
-
-        .section-head p {
-            max-width: 540px;
-            margin: 0;
-            justify-self: end;
-            color: var(--muted);
-            font-size: 16px;
-            line-height: 1.7;
-        }
-
-        .module-list {
-            border-top: 1px solid var(--line);
-        }
-
-        .module {
-            min-height: 164px;
-            display: grid;
-            grid-template-columns: 90px minmax(230px, .9fr) minmax(300px, 1.35fr) 56px;
-            gap: 28px;
-            align-items: center;
-            border-bottom: 1px solid var(--line);
-            text-decoration: none;
-            transition: color .2s ease, background-color .2s ease;
-        }
-
-        .module:hover {
-            color: var(--acid);
-            background: var(--surface);
-        }
-
-        .module__number {
-            color: var(--coral);
-            font-family: var(--font-mono);
-            font-size: 12px;
-        }
-
-        .module h3 {
-            margin: 0;
-            color: var(--paper);
-            font-size: clamp(24px, 3vw, 38px);
-            font-weight: 600;
-            letter-spacing: -.04em;
-            line-height: 1.08;
-        }
-
-        .module p {
-            max-width: 620px;
-            margin: 0;
-            color: var(--muted);
-            line-height: 1.65;
-        }
-
-        .module__arrow {
-            color: var(--acid);
-            font-family: var(--font-mono);
-            font-size: 24px;
-            text-align: right;
-        }
-
-        .learning-note {
-            background: var(--acid);
-            color: var(--ink);
-        }
-
-        .learning-note__inner {
-            width: var(--home-width);
-            min-height: 330px;
-            margin: 0 auto;
-            padding: 70px 0;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 70px;
-            align-items: center;
-        }
-
-        .learning-note h2 {
-            max-width: 660px;
-            margin: 0;
-            font-size: clamp(42px, 6vw, 76px);
-            letter-spacing: -.06em;
-            line-height: .96;
-        }
-
-        .learning-note p {
-            max-width: 540px;
-            margin: 0;
-            font-size: 17px;
-            line-height: 1.7;
-        }
-
-        @media (max-width: 860px) {
-            .home-hero,
-            .section-head,
-            .learning-note__inner {
-                grid-template-columns: 1fr;
-            }
-
-            .home-hero {
-                min-height: auto;
-                padding: 64px 0;
-                gap: 48px;
-            }
-
-            .hero-copy {
-                max-width: 620px;
-            }
-
-            .concept-strip__inner {
-                grid-template-columns: repeat(2, 1fr);
-                padding: 18px 0;
-                gap: 18px;
-            }
-
-            .section-head p {
-                justify-self: start;
-            }
-
-            .module {
-                grid-template-columns: 54px 1fr 42px;
-                padding: 28px 0;
-            }
-
-            .module p {
-                grid-column: 2 / 4;
-            }
-
-            .module__arrow {
-                grid-column: 3;
-                grid-row: 1;
-            }
-        }
-
-        @media (max-width: 560px) {
-            .home {
-                --home-width: min(100% - 24px, 1240px);
-            }
-
-            .home-hero h1 {
-                font-size: clamp(52px, 17vw, 78px);
-            }
-
-            .concept-strip__inner {
-                grid-template-columns: 1fr;
-            }
-
-            .modules {
-                padding: 78px 0 88px;
-            }
-
-            .module {
-                grid-template-columns: 42px 1fr 30px;
-                gap: 12px;
-            }
-        }
-    </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laboratorio de Álgebra Lineal · Las matrices también se mueven</title>
+<meta name="description" content="Laboratorio interactivo y bilingüe para aprender álgebra lineal de forma visual y exacta: transformaciones, sistemas, cambio de base, valores propios, ortogonalidad y SVD.">
+<meta name="theme-color" content="#0c0f0d">
+<link rel="icon" href="assets/img/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/img/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="canonical" href="https://osvo.github.io/algebra-lineal/">
+<link rel="alternate" hreflang="es" href="https://osvo.github.io/algebra-lineal/?lang=es">
+<link rel="alternate" hreflang="en" href="https://osvo.github.io/algebra-lineal/?lang=en">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Laboratorio de Álgebra Lineal">
+<meta property="og:title" content="Laboratorio de Álgebra Lineal · Las matrices también se mueven">
+<meta property="og:description" content="Laboratorio interactivo y bilingüe para aprender álgebra lineal de forma visual y exacta: transformaciones, sistemas, cambio de base, valores propios, ortogonalidad y SVD.">
+<meta property="og:url" content="https://osvo.github.io/algebra-lineal/">
+<meta property="og:image" content="https://osvo.github.io/algebra-lineal/og.png">
+<meta property="og:locale" content="es_CO">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<script>(function(){var d=document.documentElement,l,t;try{l=new URLSearchParams(location.search).get('lang')||localStorage.getItem('linear-lab-language');t=localStorage.getItem('linear-lab-theme');}catch(e){}if(l!=='es'&&l!=='en')l=/^es/i.test(navigator.language||'')?'es':'en';d.lang=l;if(t!=='dark'&&t!=='light')t=window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';d.setAttribute('data-theme',t);})();</script>
+<link rel="preload" href="vendor/fonts/manrope-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/css/lab.css">
+<link rel="stylesheet" href="vendor/katex/katex.min.css">
+<script type="module" src="assets/js/home.js"></script>
 </head>
-<body class="home" data-title-en="Linear Algebra Laboratory" data-title-es="Laboratorio de Álgebra Lineal">
-    <nav class="site-nav" aria-label="Navegación principal">
-        <div class="site-nav__inner">
-            <a class="site-nav__brand" href="index.html" aria-label="Ir al inicio">
-                <span class="site-nav__mark" aria-hidden="true">λ</span>
-                <span class="site-nav__label">
-                    <span data-en="Linear algebra lab" data-es="Laboratorio lineal">Linear algebra lab</span>
-                    <small data-en="Algebra in motion" data-es="Álgebra en movimiento">Algebra in motion</small>
-                </span>
-            </a>
-            <div class="site-nav__links">
-                <a href="#experimentos" data-en="Experiments" data-es="Experimentos">Experiments</a>
-                <a href="https://github.com/osvo/algebra-lineal" data-en="Code ↗" data-es="Código ↗">Code ↗</a>
-            </div>
-        </div>
-    </nav>
+<body class="home">
+<a class="skip-link" href="#modulos"><span data-es="Saltar a los módulos" data-en="Skip to the modules">Saltar a los módulos</span></a>
+<main>
+  <section class="home-hero">
+    <div>
+      <p class="kicker"><span data-es="Álgebra lineal, a la vista" data-en="Linear algebra, in plain sight">Álgebra lineal, a la vista</span></p>
+      <h1 data-es="Las matrices también se &lt;em&gt;mueven.&lt;/em&gt;" data-en="Matrices move, &lt;em&gt;too.&lt;/em&gt;" data-html>Las matrices también se <em>mueven.</em></h1>
+    </div>
+    <div class="hero-copy">
+      <p data-es="Arrastra un vector, cambia una base y observa cómo responde el espacio. Diez laboratorios que convierten operaciones abstractas en intuición visible, con cálculos exactos y explicaciones rigurosas." data-en="Drag a vector, change a basis and watch space respond. Ten labs that turn abstract operations into visible intuition, with exact computations and rigorous explanations.">Arrastra un vector, cambia una base y observa cómo responde el espacio. Diez laboratorios que convierten operaciones abstractas en intuición visible, con cálculos exactos y explicaciones rigurosas.</p>
+      <div class="hero-actions">
+        <a class="btn btn--primary" href="transformaciones_2D.html"><span data-es="Empezar por el módulo 01" data-en="Start with module 01">Empezar por el módulo 01</span></a>
+        <a class="btn" href="#modulos"><span data-es="Ver todos los módulos" data-en="See all modules">Ver todos los módulos</span></a>
+      </div>
+      <p class="credit"><span data-es="Proyecto independiente inspirado en las matemáticas visuales de" data-en="Independent project inspired by the visual mathematics of">Proyecto independiente inspirado en las matemáticas visuales de</span> <a href="https://www.3blue1brown.com/" target="_blank" rel="noopener noreferrer">3Blue1Brown ↗</a></p>
+    </div>
+  </section>
+  <div class="hero-art" id="hero-art"><div class="hero-art__caption" id="hero-caption"></div></div>
 
-    <main>
-        <section class="home-hero">
-            <div>
-                <p class="kicker" data-en="Linear algebra, in plain sight" data-es="Álgebra lineal, a la vista">Linear algebra, in plain sight</p>
-                <h1 data-en="Matrices move, <em>too.</em>" data-es="Las matrices también se <em>mueven.</em>" data-i18n-html>Matrices move, <em>too.</em></h1>
-            </div>
-            <div class="hero-copy">
-                <p data-en="Change a basis, drag a vector, and watch the space respond. Six experiments that turn abstract operations into visible intuition." data-es="Cambia una base, arrastra un vector y observa cómo el espacio responde. Seis experimentos para convertir operaciones abstractas en intuiciones visibles.">
-                    Change a basis, drag a vector, and watch the space respond.
-                    Six experiments that turn abstract operations into visible intuition.
-                </p>
-                <a class="hero-link" href="#experimentos" data-en="Start exploring" data-es="Comenzar el recorrido">Start exploring</a>
-                <p class="inspiration-credit">
-                    <span data-en="Independent project inspired by the visual mathematics of" data-es="Proyecto independiente inspirado en las matemáticas visuales de">Independent project inspired by the visual mathematics of</span>
-                    <a href="https://www.3blue1brown.com/" target="_blank" rel="noreferrer">3Blue1Brown ↗</a>
-                </p>
-            </div>
-        </section>
+  <section class="features" aria-label="features">
+    <div class="features__inner">
+      <div class="feature"><span aria-hidden="true">ℚ</span><h3 data-es="Exacto" data-en="Exact">Exacto</h3><p data-es="Escribe 1/3, √2 o cos(π/6). Determinantes, inversas, valores propios y proyecciones se calculan con fracciones y radicales exactos." data-en="Type 1/3, √2 or cos(π/6). Determinants, inverses, eigenvalues and projections are computed with exact fractions and radicals.">Escribe 1/3, √2 o cos(π/6). Determinantes, inversas, valores propios y proyecciones se calculan con fracciones y radicales exactos.</p></div>
+      <div class="feature"><span aria-hidden="true">∴</span><h3 data-es="Explicado" data-en="Explained">Explicado</h3><p data-es="Cada módulo explica qué estás viendo y trae una sección «Formalmente» con definiciones y teoremas enunciados con precisión." data-en="Every module explains what you are seeing and has a “Formally” section with precisely stated definitions and theorems.">Cada módulo explica qué estás viendo y trae una sección «Formalmente» con definiciones y teoremas enunciados con precisión.</p></div>
+      <div class="feature"><span aria-hidden="true">✓</span><h3 data-es="Retos" data-en="Challenges">Retos</h3><p data-es="41 ejercicios interactivos con verificación automática y pistas. Tu progreso se guarda en este navegador." data-en="41 interactive exercises with automatic checking and hints. Your progress is saved in this browser.">41 ejercicios interactivos con verificación automática y pistas. Tu progreso se guarda en este navegador.</p></div>
+      <div class="feature"><span aria-hidden="true">↗</span><h3 data-es="Compartible" data-en="Shareable">Compartible</h3><p data-es="Cada configuración vive en la URL: compártela, proyéctala en modo presentación o descárgala como PNG. Funciona sin conexión." data-en="Every configuration lives in the URL: share it, project it in presentation mode or download it as a PNG. Works offline.">Cada configuración vive en la URL: compártela, proyéctala en modo presentación o descárgala como PNG. Funciona sin conexión.</p></div>
+    </div>
+  </section>
 
-        <div class="concept-strip" aria-label="Conceptos del laboratorio">
-            <div class="concept-strip__inner">
-                <span data-symbol="A" data-en="Transformations" data-es="Transformaciones">Transformations</span>
-                <span data-symbol="det" data-en="Determinants" data-es="Determinantes">Determinants</span>
-                <span data-symbol="B" data-en="Change of basis" data-es="Cambios de base">Change of basis</span>
-                <span data-symbol="ℝⁿ" data-en="Vector spaces" data-es="Espacios vectoriales">Vector spaces</span>
-            </div>
-        </div>
+  <section class="modules" id="modulos">
+    <div class="section-head">
+      <h2 data-es="Diez formas de ver lo invisible." data-en="Ten ways to see the invisible.">Diez formas de ver lo invisible.</h2>
+      <p data-es="Un recorrido sugerido: del plano al espacio, de los sistemas a los subespacios, del cambio de base al espectro, y de la geometría euclídea a lo que ya no es lineal. Cada módulo es independiente." data-en="A suggested path: from the plane to space, from systems to subspaces, from change of basis to the spectrum, and from Euclidean geometry to what is no longer linear. Every module stands on its own.">Un recorrido sugerido: del plano al espacio, de los sistemas a los subespacios, del cambio de base al espectro, y de la geometría euclídea a lo que ya no es lineal. Cada módulo es independiente.</p>
+    </div>
+    <div id="module-list"></div>
+    <noscript><ul><li><a href="transformaciones_2D.html">Transformaciones 2D</a></li><li><a href="composiciones.html">Composición</a></li><li><a href="transformaciones_3D.html">Transformaciones 3D</a></li><li><a href="sistemas_lineales.html">Sistemas Ax = b</a></li><li><a href="matrices_no_cuadradas.html">Matrices no cuadradas</a></li><li><a href="cambio_de_base.html">Cambio de base</a></li><li><a href="valores_propios.html">Valores propios y dinámica</a></li><li><a href="ortogonalidad.html">Ortogonalidad</a></li><li><a href="svd.html">Descomposición en valores singulares</a></li><li><a href="transformaciones_no_lineales.html">Transformaciones no lineales</a></li></ul></noscript>
+  </section>
 
-        <section class="modules" id="experimentos">
-            <div class="section-head">
-                <h2 data-en="Six ways to see the invisible." data-es="Seis formas de ver lo invisible.">Six ways to see the invisible.</h2>
-                <p data-en="Start in the plane, shift your perspective, and finish by breaking linearity. Every module responds immediately to your input." data-es="Empieza por el plano, cambia la perspectiva y termina rompiendo la linealidad. Cada módulo responde de inmediato a tus decisiones.">
-                    Start in the plane, shift your perspective, and finish by breaking
-                    linearity. Every module responds immediately to your input.
-                </p>
-            </div>
-
-            <div class="module-list">
-                <a class="module" href="transformaciones_2D.html">
-                    <span class="module__number" data-en="01 / FOUNDATION" data-es="01 / FUNDAMENTO">01 / FOUNDATION</span>
-                    <h3 data-en="2D transformations" data-es="Transformaciones 2D">2D transformations</h3>
-                    <p data-en="Deform the plane with a 2 × 2 matrix and study its determinant, eigenvectors, image, and kernel." data-es="Deforma el plano con una matriz 2 × 2 y estudia determinante, vectores propios, imagen y kernel.">Deform the plane with a 2 × 2 matrix and study its determinant, eigenvectors, image, and kernel.</p>
-                    <span class="module__arrow" aria-hidden="true">→</span>
-                </a>
-                <a class="module" href="cambio_de_base.html">
-                    <span class="module__number" data-en="02 / COORDINATES" data-es="02 / COORDENADAS">02 / COORDINATES</span>
-                    <h3 data-en="Change of basis" data-es="Cambio de base">Change of basis</h3>
-                    <p data-en="Describe the same vector in two coordinate systems and understand what remains invariant." data-es="Describe el mismo vector desde dos sistemas de coordenadas y comprende qué permanece invariante.">Describe the same vector in two coordinate systems and understand what remains invariant.</p>
-                    <span class="module__arrow" aria-hidden="true">→</span>
-                </a>
-                <a class="module" href="composiciones.html">
-                    <span class="module__number" data-en="03 / ORDER" data-es="03 / ORDEN">03 / ORDER</span>
-                    <h3 data-en="Composition" data-es="Composición">Composition</h3>
-                    <p data-en="Chain two transformations, reverse their order, and see why matrix multiplication does not commute." data-es="Encadena dos transformaciones, invierte su orden y comprueba por qué multiplicar matrices no conmuta.">Chain two transformations, reverse their order, and see why matrix multiplication does not commute.</p>
-                    <span class="module__arrow" aria-hidden="true">→</span>
-                </a>
-                <a class="module" href="transformaciones_3D.html">
-                    <span class="module__number" data-en="04 / SPACE" data-es="04 / ESPACIO">04 / SPACE</span>
-                    <h3 data-en="3D transformations" data-es="Transformaciones 3D">3D transformations</h3>
-                    <p data-en="Rotate, project, and reflect space from different viewpoints with three-dimensional controls." data-es="Rota, proyecta y refleja el espacio desde distintos puntos de vista con controles tridimensionales.">Rotate, project, and reflect space from different viewpoints with three-dimensional controls.</p>
-                    <span class="module__arrow" aria-hidden="true">→</span>
-                </a>
-                <a class="module" href="matrices_no_cuadradas.html">
-                    <span class="module__number" data-en="05 / DIMENSION" data-es="05 / DIMENSIÓN">05 / DIMENSION</span>
-                    <h3 data-en="Non-square matrices" data-es="Matrices no cuadradas">Non-square matrices</h3>
-                    <p data-en="Watch a transformation move between dimensions and see what rank and nullity reveal." data-es="Observa cómo una transformación viaja entre dimensiones y qué dicen el rango y la nulidad del resultado.">Watch a transformation move between dimensions and see what rank and nullity reveal.</p>
-                    <span class="module__arrow" aria-hidden="true">→</span>
-                </a>
-                <a class="module" href="transformaciones_no_lineales.html">
-                    <span class="module__number" data-en="06 / CONTRAST" data-es="06 / CONTRASTE">06 / CONTRAST</span>
-                    <h3 data-en="Nonlinear transformations" data-es="No lineales">Nonlinear transformations</h3>
-                    <p data-en="Compare linear behavior with transformations that bend, ripple, or distort the plane." data-es="Compara el comportamiento lineal con deformaciones que curvan, ondulan o distorsionan el plano.">Compare linear behavior with transformations that bend, ripple, or distort the plane.</p>
-                    <span class="module__arrow" aria-hidden="true">→</span>
-                </a>
-            </div>
-        </section>
-
-        <section class="learning-note">
-            <div class="learning-note__inner">
-                <h2 data-en="Do not memorize first. Manipulate, observe, then name." data-es="No memorices primero. Manipula, observa y luego nombra.">Do not memorize first. Manipulate, observe, then name.</h2>
-                <p data-en="The laboratory is a space for exploration: every control changes a mathematical representation, and every visual turns the result into something you can inspect." data-es="El laboratorio está pensado como una mesa de exploración: cada control modifica una representación matemática y cada gráfico convierte el resultado en una experiencia que puedes inspeccionar.">
-                    The laboratory is a space for exploration: every control changes a
-                    mathematical representation, and every visual turns the result into
-                    something you can inspect.
-                </p>
-            </div>
-        </section>
-    </main>
-
-    <footer class="lab-footer">
-        <div class="lab-footer__inner">
-            <span>© Juan Camilo Osorio Oviedo</span>
-            <a href="https://www.3blue1brown.com/" target="_blank" rel="noreferrer" data-en="Independent project inspired by 3Blue1Brown ↗" data-es="Proyecto independiente inspirado en 3Blue1Brown ↗">Independent project inspired by 3Blue1Brown ↗</a>
-        </div>
-    </footer>
+  <section class="learning-note">
+    <div class="learning-note__inner">
+      <h2 data-es="No memorices primero. Manipula, observa y luego nombra." data-en="Do not memorize first. Manipulate, observe, then name.">No memorices primero. Manipula, observa y luego nombra.</h2>
+      <p data-es="Cada control modifica una representación matemática y cada gráfico convierte el resultado en algo que puedes inspeccionar. Cuando la intuición esté lista, la pestaña «Formalmente» te espera con los enunciados precisos." data-en="Every control changes a mathematical representation and every picture turns the result into something you can inspect. When the intuition is ready, the “Formally” tab is waiting with the precise statements.">Cada control modifica una representación matemática y cada gráfico convierte el resultado en algo que puedes inspeccionar. Cuando la intuición esté lista, la pestaña «Formalmente» te espera con los enunciados precisos.</p>
+    </div>
+  </section>
+</main>
 </body>
 </html>

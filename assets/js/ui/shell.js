@@ -7,6 +7,7 @@ import { themeButton } from './theme.js';
 import { richHTML } from './tex.js';
 import { MODULES, CHAPTERS, moduleNumber, chapterOf } from '../modules/registry.js';
 import { createStore } from './store.js';
+import { registerServiceWorker } from './pwa.js';
 
 const T = {
   modules: { es: 'Módulos', en: 'Modules' },
@@ -296,6 +297,7 @@ export function createLab(config) {
   });
 
   document.documentElement.removeAttribute('data-loading');
+  registerServiceWorker();
   return { store, ctx, mod };
 }
 

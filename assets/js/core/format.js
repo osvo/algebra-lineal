@@ -157,11 +157,6 @@ export function texVector(values, { cls: klass = null, raw = false, ...opts } = 
 }
 
 /** Augmented matrix [A | b] with a vertical bar. */
-export function texAugmented(entries, nCols, opts = {}) {
-  const spec = `${'c'.repeat(nCols)}|${'c'.repeat(entries[0].length - nCols)}`;
-  const rows = entries.map((row) => row.map((v) => texValue(v, opts)).join(' & '));
-  return `\\left[\\begin{array}{${spec}} ${rows.join(' \\\\ ')} \\end{array}\\right]`;
-}
 
 /** Monic-leading polynomial with coefficients [c_n, …, c_0] in variable `x`. */
 export function texPoly(coefs, x = '\\lambda', opts = {}) {
@@ -217,9 +212,6 @@ export function plainValue(v, digits = 2) {
   return fmtDecimal(v.re, digits);
 }
 
-export function plainVector(values, digits = 2) {
-  return `(${values.map((v) => plainValue(v, digits)).join(', ')})`;
-}
 
 /** (q)·√m as TeX, for a rational q and a square-free positive integer m (BigInt). */
 export function texRationalSqrt(q, m) {

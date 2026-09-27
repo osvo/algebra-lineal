@@ -1,4 +1,4 @@
-import { createLab } from '../ui/shell.js';
+import { createLab, composeCanvases } from '../ui/shell.js';
 import { codec, M, V } from '../ui/store.js';
 import { Plane2D } from '../ui/plane2d.js';
 import { Scene3D, THREE } from '../ui/scene3d.js';
@@ -376,17 +376,7 @@ createLab({
 
     return {
       render,
-      snapshot: () => {
-        const canvases = views.map((v) => v.snapshot());
-        if (canvases.length === 1) return canvases[0];
-        const out = document.createElement('canvas');
-        const hmax = Math.max(...canvases.map((c) => c.height));
-        out.width = canvases.reduce((s, c) => s + c.width, 0) + 4; out.height = hmax;
-        const c2 = out.getContext('2d');
-        let x = 0;
-        for (const c of canvases) { c2.drawImage(c, x, 0); x += c.width + 4; }
-        return out;
-      },
+      snapshot: () => composeCanvases(views.map((v) => v.snapshot())),
       togglePlay: () => { if (store.get('view') === 'morph') anim.toggle(); },
       onReset: () => { anim.pause(); viewKey = ''; ctx.rerender(); },
     };

@@ -1,7 +1,7 @@
 import { createLab } from '../ui/shell.js';
 import { codec, M } from '../ui/store.js';
 import { Plane2D } from '../ui/plane2d.js';
-import { card, matrixEditor, flagChip, readout, animator } from '../ui/controls.js';
+import { card, matrixEditor, flagChip, readout, animator, stageLabels } from '../ui/controls.js';
 import { h } from '../ui/dom.js';
 import { tr } from '../ui/i18n.js';
 import { entryFromNumber } from '../core/parse.js';
@@ -11,7 +11,6 @@ import * as L from '../core/linalg.js';
 import { eigenAnalysis } from '../core/eigen.js';
 import { svd, conditionNumber } from '../core/svd.js';
 import { texValue, texMatrix, texSqrt, fmtDecimal, cls } from '../core/format.js';
-import { renderTex } from '../ui/tex.js';
 import { COL_VARS, presetSelect, memo, entriesKey } from './common.js';
 
 const PRESETS = [
@@ -61,8 +60,8 @@ createLab({
     const plane = new Plane2D(ctx.addView(), { range: 7.2 });
     const anim = animator({ store, key: 't', max: 3 });
     ctx.bar.append(anim.el);
-    const stageRow = h('div', { class: 'anim__stages', style: { gridColumn: '1 / -1' } });
-    anim.el.append(stageRow);
+    const stageRow = stageLabels();
+    anim.el.append(stageRow.el);
 
     const setCol = (j) => ([x, y]) => {
       const A = store.get('A').map((row) => row.slice());
@@ -142,11 +141,7 @@ createLab({
       const t = state.t;
       const reflU = L.det2(an.dec.U) < 0;
       const names = ['V^{\\mathsf T}', '\\Sigma', 'U'];
-      stageRow.replaceChildren(...names.flatMap((nm, i) => {
-        const s = h('span', { class: 'anim__stage', html: texInline(`${i + 1}.\\;${nm}`) });
-        s.dataset.active = String(t >= i - 1e-9 && (t < i + 1 || (i === 2 && t <= 3)));
-        return i ? [h('span', null, '→'), s] : [s];
-      }));
+      stageRow.update(names.map((nm, i) => `${i + 1}.\;${nm}`), Math.min(2, Math.floor(t)));
 
       const { F, AtA, eig, dec } = an;
       r.ata.set(`A^{\\mathsf T}A = ${texMatrix(AtA)}`, { es: 'Simétrica y semidefinida positiva: sus valores propios son ≥ 0 y sus vectores propios son perpendiculares.', en: 'Symmetric positive semidefinite: its eigenvalues are ≥ 0 and its eigenvectors are perpendicular.' });
@@ -284,4 +279,3 @@ createLab({
   ],
 });
 
-function texInline(tex) { const s = document.createElement('span'); renderTex(s, tex); return s.innerHTML; }

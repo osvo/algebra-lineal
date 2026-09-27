@@ -145,7 +145,7 @@ export function createLab(config) {
 
   const mkAction = (iconName, label, title, onClick, kind = '') => {
     const b = h('button', { type: 'button', class: `btn${kind ? ` btn--${kind}` : ''}` }, icon(iconName));
-    const s = h('span'); setText(s, label); b.append(s);
+    const s = h('span', { class: 'btn__label' }); setText(s, label); b.append(s);
     setAttr(b, 'title', title);
     b.addEventListener('click', onClick);
     return b;
@@ -373,6 +373,7 @@ function setupChallenges(config, meta, store, learn, banner, getDerived) {
   const list = config.challenges || [];
   let activeId = null;
   let activeSnapshot = null;
+  let activating = false;
   const done = () => new Set((solvedChallenges()[meta.id]) || []);
 
   function markDone(id) {
@@ -427,15 +428,18 @@ function setupChallenges(config, meta, store, learn, banner, getDerived) {
 
   function activate(id) {
     const c = list.find((x) => x.id === id);
+    // The setup state must not count as a solution: checks are suspended until the
+    // snapshot that later changes are compared against has been taken.
+    activating = true;
+    try { if (c.setup) c.setup(store); } finally { activating = false; }
     activeId = id;
-    if (c.setup) c.setup(store);
     activeSnapshot = store.snapshot();
     render();
     document.getElementById('lab').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function check(derived) {
-    if (!activeId) return;
+    if (!activeId || activating) return;
     const c = list.find((x) => x.id === activeId);
     if (!c) return;
     if (store.snapshot() === activeSnapshot) return;
@@ -457,7 +461,8 @@ function setupChallenges(config, meta, store, learn, banner, getDerived) {
 function stripTags(s) { return String(s).replace(/<[^>]+>/g, '').replace(/\$/g, ''); }
 
 /** Places several canvases side by side (for PNG export of multi-view modules). */
-export function composeCanvases(canvases, gap = 2, bg = '#000') {
+export function composeCanvases(canvases, gap = 4, bg = getComputedStyle(document.documentElement).getPropertyValue('--line').trim() || '#303a32') {
+  if (canvases.length === 1) return canvases[0];
   const hMax = Math.max(...canvases.map((c) => c.height));
   const w = canvases.reduce((s, c) => s + c.width, 0) + gap * (canvases.length - 1);
   const out = document.createElement('canvas');

@@ -534,6 +534,9 @@ body.presenting .present-exit { display: inline-flex; }
 }
 @media (max-width: 600px) {
   :root { --width: min(100% - 24px, 1320px); --nav-h: 58px; }
+  /* Header actions become icon-only; the label stays available to screen readers. */
+  .lab-head__actions .btn { position: relative; padding-inline: 10px; }
+  .lab-head__actions .btn__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   body { font-size: 14.5px; }
   .brand__label small { display: none; }
   .nav-link--text { display: none; }

@@ -4,7 +4,7 @@
 import { h, icon, clamp } from './dom.js';
 import { tr, setText, setAttr, onLangChange } from './i18n.js';
 import { makeEntry, numberToInput, describeParseError } from '../core/parse.js';
-import { renderTex } from './tex.js';
+import { renderTex, texToHTML } from './tex.js';
 
 const COL_VARS = ['var(--c-i)', 'var(--c-j)', 'var(--c-k)', 'var(--c-w)'];
 
@@ -239,7 +239,7 @@ export function readout(label, { block = false, labelTex = null } = {}) {
  * Animation of a parameter t ∈ [0, max] stored in store[key].
  * stages: optional [{ from, to, label }] shown under the controls.
  */
-export function animator({ store, key = 't', max = 1, stages = null, speed = 1, labelTex = 't', format = (x) => x.toFixed(2) }) {
+export function animator({ store, key = 't', max = 1, stages = null, speed = 1, labelTex = 't', format = (x) => x.toFixed(2), unitsPerSecond = 0.5 }) {
   let playing = false;
   let loop = false;
   let rate = speed;
@@ -272,7 +272,7 @@ export function animator({ store, key = 't', max = 1, stages = null, speed = 1, 
     if (last === null) last = now;
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
-    let t = store.get(key) + dt * rate * 0.5;
+    let t = store.get(key) + dt * rate * unitsPerSecond;
     if (t >= max) {
       if (loop) t = 0;
       else { t = max; playing = false; }
@@ -314,6 +314,28 @@ export function animator({ store, key = 't', max = 1, stages = null, speed = 1, 
   }
   update();
   return { el, update, play, pause, toggle, get playing() { return playing; } };
+}
+
+/**
+ * Row of stage labels under an animation ("1. P⁻¹ → 2. D → 3. P"). Labels are
+ * rendered once per change of the label set; updates only move the highlight.
+ */
+export function stageLabels() {
+  const el = h('div', { class: 'anim__stages', style: { gridColumn: '1 / -1' } });
+  let key = null;
+  let spans = [];
+  return {
+    el,
+    update(labels, active) {
+      const k = labels.join('|');
+      if (k !== key) {
+        key = k;
+        spans = labels.map((tex) => h('span', { class: 'anim__stage', html: texToHTML(tex) }));
+        el.replaceChildren(...spans.flatMap((s, i) => (i ? [h('span', { 'aria-hidden': 'true' }, '→'), s] : [s])));
+      }
+      spans.forEach((s, i) => { s.dataset.active = String(i === active); });
+    },
+  };
 }
 
 export { clamp };

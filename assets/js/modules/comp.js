@@ -1,7 +1,7 @@
 import { createLab } from '../ui/shell.js';
 import { codec, M, V } from '../ui/store.js';
 import { Plane2D } from '../ui/plane2d.js';
-import { card, matrixEditor, vectorEditor, flagChip, readout, animator, segmented, button } from '../ui/controls.js';
+import { card, matrixEditor, vectorEditor, flagChip, readout, animator, segmented, button, stageLabels } from '../ui/controls.js';
 import { h } from '../ui/dom.js';
 import { tr, setText } from '../ui/i18n.js';
 import { entryFromNumber, makeEntry } from '../core/parse.js';
@@ -45,8 +45,8 @@ createLab({
     const plane = new Plane2D(ctx.addView(), { range: 4.2 });
     const anim = animator({ store, key: 't', max: 2 });
     ctx.bar.append(anim.el);
-    const stageInfo = h('div', { class: 'anim__stages', style: { gridColumn: '1 / -1' } });
-    anim.el.append(stageInfo);
+    const stageInfo = stageLabels();
+    anim.el.append(stageInfo.el);
 
     const key = (n) => `M${n}`;
     const order = (s) => (s.first === '1' ? ['1', '2'] : ['2', '1']);
@@ -178,8 +178,7 @@ createLab({
         ? { es: 'Primero M₁ y después M₂: la matriz de la composición es M₂M₁ (se lee de derecha a izquierda).', en: 'First M₁, then M₂: the matrix of the composition is M₂M₁ (read right to left).' }
         : { es: 'Primero M₂ y después M₁: la matriz de la composición es M₁M₂ (se lee de derecha a izquierda).', en: 'First M₂, then M₁: the matrix of the composition is M₁M₂ (read right to left).' });
       const t = state.t;
-      stageInfo.replaceChildren(
-        stageSpan(t <= 1, `1. M${fn === '1' ? '₁' : '₂'}`), h('span', null, '→'), stageSpan(t > 1, `2. M${sn === '1' ? '₁' : '₂'}`));
+      stageInfo.update([`1.\\;M_{${fn}}`, `2.\\;M_{${sn}}`], t <= 1 ? 0 : 1);
 
       // Exact algebra (both matrices in a common field).
       const { F, M: both } = L.fieldMatrix([...Fe, ...Se]);
@@ -311,11 +310,6 @@ createLab({
   ],
 });
 
-function stageSpan(active, text) {
-  const s = h('span', { class: 'anim__stage' }, text);
-  s.dataset.active = String(active);
-  return s;
-}
 function paren(tex) { return tex.startsWith('-') ? `(${tex})` : tex; }
 const num = (F, x) => (F ? F.toNumber(x) : x);
 function close(Mx, F, T) { return T.every((row, i) => row.every((x, j) => Math.abs(num(F, Mx[i][j]) - x) < 1e-9)); }

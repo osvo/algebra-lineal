@@ -1,6 +1,6 @@
 // Singular value decomposition for small matrices (floating point).
 
-import { transpose, mulFloat, normalize, dotFloat, cross, det2, det3 } from './linalg.js';
+import { transpose, mulFloat, normalize, dotFloat, det2, det3 } from './linalg.js';
 
 /** Eigen-decomposition of a real symmetric matrix by cyclic Jacobi rotations. */
 export function symmetricEigen(S) {
@@ -68,15 +68,14 @@ const detOf = (cols) => {
  * For square matrices V is chosen with det V = +1 (a rotation), so that any
  * reflection lives in U; this keeps the animation "rotate, stretch, rotate(/reflect)".
  */
-export function svd(A, tol = 1e-10) {
+export function svd(A) {
   const m = A.length, n = A[0].length;
   const AtA = mulFloat(transpose(A), A);
   const { values, vectors } = symmetricEigen(AtA);
-  let scale = 0;
-  for (const row of A) for (const x of row) scale = Math.max(scale, Math.abs(x));
-  const eps = tol * Math.max(1, scale);
   const k = Math.min(m, n);
   const S = values.slice(0, k).map((l) => Math.sqrt(Math.max(0, l)));
+  // σ = √λ inherits a relative error of order √ε from λ, so rank is decided relative to σ₁.
+  const eps = Math.max(1e-7 * (S[0] || 0), 1e-300);
   let v = vectors.map((x) => normalize(x));
   if (n >= 2 && detOf(v) < 0) v[n - 1] = v[n - 1].map((x) => -x);
   const u = [];
@@ -98,17 +97,7 @@ export function svd(A, tol = 1e-10) {
   return { U: transpose(uFull), V: transpose(v), S, u: uFull, v, rank };
 }
 
-/** 2×2 helpers: angle of a rotation (or reflection) matrix given by orthonormal columns. */
-export function orthoInfo2(Q) {
-  const d = det2(Q);
-  // Rotation: [[c,−s],[s,c]]; reflection: [[c,s],[s,−c]] (reflection across the line at angle θ/2).
-  const theta = Math.atan2(Q[1][0], Q[0][0]);
-  return { reflection: d < 0, theta };
-}
-
 export function conditionNumber(S) {
   const min = S[S.length - 1];
   return min <= 0 ? Infinity : S[0] / min;
 }
-
-export { cross };

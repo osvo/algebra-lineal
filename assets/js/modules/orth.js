@@ -1,13 +1,12 @@
-import { createLab } from '../ui/shell.js';
+import { createLab, composeCanvases } from '../ui/shell.js';
 import { codec, M, V } from '../ui/store.js';
 import { Plane2D } from '../ui/plane2d.js';
 import { Scene3D } from '../ui/scene3d.js';
-import { card, matrixEditor, vectorEditor, flagChip, readout, animator, segmented, button } from '../ui/controls.js';
+import { card, matrixEditor, vectorEditor, flagChip, readout, animator, segmented, button, stageLabels } from '../ui/controls.js';
 import { h } from '../ui/dom.js';
 import { tr, setText } from '../ui/i18n.js';
 import { entryFromNumber } from '../core/parse.js';
 import { RationalField, FloatField } from '../core/fields.js';
-import { renderTex } from '../ui/tex.js';
 import { Rational, sqrtRational } from '../core/rational.js';
 import * as L from '../core/linalg.js';
 import { texValue, texVector, texMatrix, cls, fmtDecimal, texSqrt, texRationalSqrt, plainValue } from '../core/format.js';
@@ -33,8 +32,8 @@ createLab({
     const { store } = ctx;
     const anim = animator({ store, key: 'g', max: 4 });
     ctx.bar.append(anim.el);
-    const stageRow = h('div', { class: 'anim__stages', style: { gridColumn: '1 / -1' } });
-    anim.el.append(stageRow);
+    const stageRow = stageLabels();
+    anim.el.append(stageRow.el);
 
     // Panel -------------------------------------------------------------------------
     const modeSeg = segmented({
@@ -275,11 +274,7 @@ createLab({
         { es: 'W tiene columnas ortogonales y U es triangular superior con unos en la diagonal. Normalizando las columnas de W se obtiene la factorización QR: Q = W·diag(1/‖wᵢ‖), R = diag(‖wᵢ‖)·U.', en: 'W has orthogonal columns and U is upper triangular with ones on the diagonal. Normalizing the columns of W gives the QR factorization: Q = W·diag(1/‖wᵢ‖), R = diag(‖wᵢ‖)·U.' });
       for (let i = 4; i < 7; i++) rs[i].show(false);
       const names = ['\\mathbf{w}_1 = \\mathbf{v}_1', '\\mathbf{w}_2', '\\mathbf{w}_3', '\\mathbf{q}_i'];
-      stageRow.replaceChildren(...names.flatMap((nm, i) => {
-        const s = h('span', { class: 'anim__stage', html: texInline(nm) });
-        s.dataset.active = String(g > i && g <= i + 1 + 1e-9);
-        return i ? [h('span', null, '→'), s] : [s];
-      }));
+      stageRow.update(names, Math.max(0, Math.min(3, Math.ceil(g) - 1)));
       ctx.setLegend([
         { color: 'var(--c-i)', tex: '\\mathbf{w}_1' }, { color: 'var(--c-j)', tex: '\\mathbf{w}_2' }, { color: 'var(--c-k)', tex: '\\mathbf{w}_3' },
         { color: 'var(--muted)', label: { es: 'proyección que se resta', en: 'projection being subtracted' } },
@@ -393,15 +388,7 @@ createLab({
 
     return {
       render,
-      snapshot: () => {
-        const cs = [views.plane, views.scene].filter(Boolean).map((v) => v.snapshot());
-        if (cs.length === 1) return cs[0];
-        const out = document.createElement('canvas');
-        out.width = cs[0].width + cs[1].width + 4; out.height = Math.max(cs[0].height, cs[1].height);
-        const c2 = out.getContext('2d');
-        c2.drawImage(cs[0], 0, 0); c2.drawImage(cs[1], cs[0].width + 4, 0);
-        return out;
-      },
+      snapshot: () => composeCanvases([views.plane, views.scene].filter(Boolean).map((v) => v.snapshot())),
       togglePlay: () => { if (store.get('mode') === 'gs') anim.toggle(); },
       onReset: () => { anim.pause(); viewKey = ''; ctx.rerender(); },
     };
@@ -499,7 +486,6 @@ createLab({
 
 // ---------------------------------------------------------------------------
 
-function texInline(tex) { const s = document.createElement('span'); renderTex(s, tex); return s.innerHTML; }
 function paren(t) { return t.startsWith('-') ? `(${t})` : t; }
 function signed(t) { return t.startsWith('-') ? `- ${t.slice(1)}` : `+ ${t}`; }
 function sub(k) { return '₀₁₂₃₄₅₆₇₈₉'[k] || k; }

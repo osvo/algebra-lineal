@@ -199,6 +199,36 @@ await check('switching dimensions in non-square matrices frees old views', async
   await context.close();
 });
 
+await check('systems: floating-point elimination with √3 reaches the RREF', async () => {
+  const { page, context, errors } = await openPage('sistemas_lineales.html?A=sqrt(3),1;1,sqrt(3)&b=1,2');
+  await page.getByRole('button', { name: /Paso siguiente/ }).click();
+  await page.getByRole('button', { name: /Hasta el final/ }).click();
+  assert.match(await page.locator('.panel').innerText(), /Escalonada reducida ✓/);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+await check('animation stage labels show one active stage', async () => {
+  for (const [path, count] of [['valores_propios.html?mode=diag', 3], ['svd.html', 3], ['composiciones.html', 2]]) {
+    const { page, context, errors } = await openPage(path);
+    const stages = page.locator('.anim__stages:visible .anim__stage');
+    assert.equal(await stages.count(), count, `${path}: number of stages`);
+    assert.equal(await page.locator('.anim__stages:visible .anim__stage[data-active="true"]').count(), 1, `${path}: one active stage`);
+    assert.deepEqual(errors, []);
+    await context.close();
+  }
+});
+
+await check('PNG export with several views (2D + 3D)', async () => {
+  for (const [path, id] of [['matrices_no_cuadradas.html', 'nsq'], ['ortogonalidad.html', 'orth']]) {
+    const { page, context, errors } = await openPage(path);
+    const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /^PNG/ }).click()]);
+    assert.match(download.suggestedFilename(), new RegExp(`^algebra-lineal-${id}-.*\\.png$`));
+    assert.deepEqual(errors, []);
+    await context.close();
+  }
+});
+
 await check('mobile layout has no horizontal overflow', async () => {
   for (const path of ['index.html', 'transformaciones_2D.html', 'sistemas_lineales.html', 'ortogonalidad.html']) {
     const { page, context, errors } = await openPage(path, { width: 390, height: 844 });

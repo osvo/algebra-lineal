@@ -104,6 +104,11 @@ function cloneValue(v) {
 // Codecs
 // ---------------------------------------------------------------------------
 
+// Entry texts are stored verbatim; only the characters used as separators
+// (and the escape character itself) are percent-escaped, so "1,0;0,1" stays readable.
+const escapeEntry = (t) => String(t).replace(/%/g, '%25').replace(/,/g, '%2C').replace(/;/g, '%3B').replace(/\|/g, '%7C');
+const unescapeEntry = (t) => t.replace(/%7C/gi, '|').replace(/%3B/gi, ';').replace(/%2C/gi, ',').replace(/%25/g, '%');
+
 export const codec = {
   num: (min = -Infinity, max = Infinity) => ({
     parse: (s) => { const x = parseFloat(s); return Number.isFinite(x) ? Math.min(max, Math.max(min, x)) : undefined; },
@@ -127,10 +132,10 @@ export const codec = {
       const r = s.split(';').map((row) => row.split(','));
       if (rows && r.length !== rows) return undefined;
       if (cols && r.some((row) => row.length !== cols)) return undefined;
-      const m = r.map((row) => row.map((t) => makeEntry(t)));
+      const m = r.map((row) => row.map((t) => makeEntry(unescapeEntry(t))));
       return m.every((row) => row.every((e) => e.ok)) ? m : undefined;
     },
-    format: (m) => m.map((row) => row.map((e) => e.text.replace(/,/g, '.').replace(/\s+/g, '')).join(',')).join(';'),
+    format: (m) => m.map((row) => row.map((e) => escapeEntry(e.text)).join(',')).join(';'),
   }),
   /** Variable-size matrix (dimension encoded by the shape). */
   anyMatrix: () => codec.matrix(null, null),
@@ -138,10 +143,10 @@ export const codec = {
     parse(s) {
       const parts = s.split(',');
       if (n && parts.length !== n) return undefined;
-      const v = parts.map((t) => makeEntry(t));
+      const v = parts.map((t) => makeEntry(unescapeEntry(t)));
       return v.every((e) => e.ok) ? v : undefined;
     },
-    format: (v) => v.map((e) => e.text.replace(/,/g, '.').replace(/\s+/g, '')).join(','),
+    format: (v) => v.map((e) => escapeEntry(e.text)).join(','),
   }),
   /** A single 2D point "x:y". */
   point: () => ({

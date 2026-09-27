@@ -20,7 +20,7 @@ function detect() {
 let lang = detect();
 document.documentElement.lang = lang;
 const listeners = new Set();
-const bound = new Set(); // { el, attr, obj }
+const bound = new Map(); // element → Map(attribute → text object)
 
 export const getLang = () => lang;
 
@@ -38,21 +38,18 @@ export function trf(obj, params = {}) {
   return tr(obj).replace(/\{(\w+)\}/g, (_, k) => (k in params ? params[k] : `{${k}}`));
 }
 
-export function setText(el, obj, { html = false } = {}) {
-  const entry = { el, attr: html ? '__html' : '__text', obj };
-  bound.add(entry);
-  applyEntry(entry);
+function bind(el, attr, obj) {
+  let attrs = bound.get(el);
+  if (!attrs) { attrs = new Map(); bound.set(el, attrs); }
+  attrs.set(attr, obj);
+  applyEntry(el, attr, obj);
   return el;
 }
 
-export function setAttr(el, attr, obj) {
-  const entry = { el, attr, obj };
-  bound.add(entry);
-  applyEntry(entry);
-  return el;
-}
+export function setText(el, obj, { html = false } = {}) { return bind(el, html ? '__html' : '__text', obj); }
+export function setAttr(el, attr, obj) { return bind(el, attr, obj); }
 
-function applyEntry({ el, attr, obj }) {
+function applyEntry(el, attr, obj) {
   const value = tr(obj);
   if (attr === '__text') el.textContent = value;
   else if (attr === '__html') el.innerHTML = value;
@@ -69,10 +66,10 @@ export function setLang(next) {
   const url = new URL(location.href);
   url.searchParams.set('lang', lang);
   history.replaceState(history.state, '', url);
-  for (const entry of bound) {
+  for (const [el, attrs] of bound) {
     // Elements removed from the page (e.g. rebuilt editors) are forgotten.
-    if (!entry.el.isConnected) { bound.delete(entry); continue; }
-    applyEntry(entry);
+    if (!el.isConnected) { bound.delete(el); continue; }
+    for (const [attr, obj] of attrs) applyEntry(el, attr, obj);
   }
   for (const fn of listeners) fn(lang);
 }

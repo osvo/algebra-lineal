@@ -5,7 +5,7 @@ import * as L from '../core/linalg.js';
 import { eigenAnalysis } from '../core/eigen.js';
 import { texValue, texMatrix, texVector, texPoly, texSurdPair, cls } from '../core/format.js';
 import { Surd } from '../core/fields.js';
-import { tr, getLang } from '../ui/i18n.js';
+import { getLang } from '../ui/i18n.js';
 import { makeEntry } from '../core/parse.js';
 import { selectBox } from '../ui/controls.js';
 
@@ -31,7 +31,6 @@ export function analyzeSquare(entries) {
   return { n, F, M, Af, det, rank, nullity: n - rank, ker, img, inv, eig, trace: tr_, R, pivots, exact: F === RationalField };
 }
 
-export const texVec = (v, opts = {}) => texVector(v, opts);
 
 /** gen{v₁, …} with column vectors; {0} for the zero space; ℝⁿ for the whole space. */
 export function texSpan(basis, n, { klass = null } = {}) {
@@ -148,4 +147,3 @@ export function memo(fn) {
 
 export const entriesKey = (m) => m.map((row) => row.map((e) => e.text).join(',')).join(';');
 
-export const hint = (obj) => ({ html: tr(obj) });

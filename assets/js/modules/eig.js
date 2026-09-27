@@ -1,7 +1,7 @@
 import { createLab } from '../ui/shell.js';
 import { codec, M } from '../ui/store.js';
 import { Plane2D } from '../ui/plane2d.js';
-import { card, matrixEditor, flagChip, readout, animator, segmented, slider, button } from '../ui/controls.js';
+import { card, matrixEditor, flagChip, readout, animator, segmented, slider, button, stageLabels } from '../ui/controls.js';
 import { h } from '../ui/dom.js';
 import { tr, setText } from '../ui/i18n.js';
 import { entryFromNumber, numberToInput } from '../core/parse.js';
@@ -10,7 +10,6 @@ import { Surd } from '../core/fields.js';
 import * as L from '../core/linalg.js';
 import { realEigenDirections, rotationScalingForm, approxVector } from '../core/eigen.js';
 import { texValue, texVector, texMatrix, cls, fmtDecimal } from '../core/format.js';
-import { renderTex } from '../ui/tex.js';
 import { analyzeSquare, eigenTex, eigenvectorTex, defectiveNote, charPolyTex, COL_VARS, presetSelect, memo, entriesKey } from './common.js';
 
 const PRESETS = [
@@ -86,12 +85,12 @@ createLab({
   build(ctx) {
     const { store } = ctx;
     const plane = new Plane2D(ctx.addView(), { range: 4 });
-    const animSearch = animator({ store, key: 'theta', max: 360, labelTex: '\\theta', format: (v) => `${Math.round(v)}°` });
-    const animDyn = animator({ store, key: 'k', max: 30, labelTex: 'k', format: (v) => v.toFixed(1) });
+    const animSearch = animator({ store, key: 'theta', max: 360, labelTex: '\\theta', format: (v) => `${Math.round(v)}°`, unitsPerSecond: 30 });
+    const animDyn = animator({ store, key: 'k', max: 30, labelTex: 'k', format: (v) => v.toFixed(1), unitsPerSecond: 2 });
     const animDiag = animator({ store, key: 't', max: 3 });
     ctx.bar.append(animSearch.el, animDyn.el, animDiag.el);
-    const diagStages = h('div', { class: 'anim__stages', style: { gridColumn: '1 / -1' } });
-    animDiag.el.append(diagStages);
+    const diagStages = stageLabels();
+    animDiag.el.append(diagStages.el);
 
     const setCol = (j) => ([x, y]) => {
       const A = store.get('A').map((row) => row.slice());
@@ -238,11 +237,7 @@ createLab({
       if (mode === 'diag') {
         const t = state.t;
         const names = dec && dec.kind === 'complex' ? ['P^{-1}', 'C', 'P'] : dec && dec.kind === 'jordan' ? ['P^{-1}', 'J', 'P'] : ['P^{-1}', 'D', 'P'];
-        diagStages.replaceChildren(...names.flatMap((nm, i) => {
-          const s = h('span', { class: 'anim__stage', html: texInline(`${i + 1}.\\;${nm}`) });
-          s.dataset.active = String(t >= i - 1e-9 && (t < i + 1 || (i === 2 && t <= 3)));
-          return i ? [h('span', null, '→'), s] : [s];
-        }));
+        diagStages.update(names.map((nm, i) => `${i + 1}.\;${nm}`), Math.min(2, Math.floor(t)));
       }
 
       // Readouts
@@ -445,4 +440,3 @@ function classify(eig) {
   return { es: `Caso límite: algún |λ| = 1 (hay vectores que no crecen ni decrecen)${neg.es}`, en: `Borderline: some |λ| = 1 (there are vectors that neither grow nor shrink)${neg.en}` };
 }
 
-function texInline(tex) { const s = document.createElement('span'); renderTex(s, tex); return s.innerHTML; }

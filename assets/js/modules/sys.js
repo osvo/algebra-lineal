@@ -7,9 +7,9 @@ import { h } from '../ui/dom.js';
 import { tr, setText, setAttr, onLangChange } from '../ui/i18n.js';
 import { makeEntry, numberToInput } from '../core/parse.js';
 import { RationalField, floatFieldFor } from '../core/fields.js';
-import { renderTex } from '../ui/tex.js';
+import { renderTex, texToHTML as texInline } from '../ui/tex.js';
 import * as L from '../core/linalg.js';
-import { texValue, texVector, texMatrix, texAugmented, cls, fmtDecimal, plainValue } from '../core/format.js';
+import { texValue, texVector, texMatrix, cls, fmtDecimal, plainValue } from '../core/format.js';
 import { texSpan, rankOp } from './common.js';
 
 const DEFAULTS = {
@@ -55,7 +55,8 @@ function formatOps(ops) {
     return o.type === 'swap' ? `${k('S')}:${o.i + 1}:${o.j + 1}` : o.type === 'scale' ? `${k('M')}:${o.i + 1}:${o.cText}` : `${k('A')}:${o.i + 1}:${o.j + 1}:${o.cText}`;
   }).join('~');
 }
-const cToText = (c, F) => (F === RationalField ? c.toString() : numberToInput(c));
+// Floats are stored with full precision: String(x) round-trips exactly, so replaying the URL reproduces the matrix.
+const cToText = (c, F) => (F === RationalField ? c.toString() : String(c));
 
 function opTex(op, F) {
   const R = (k) => `R_{${k + 1}}`;
@@ -532,11 +533,6 @@ createLab({
 
 // ---------------------------------------------------------------------------
 
-function texInline(tex) {
-  const span = document.createElement('span');
-  renderTex(span, tex);
-  return span.innerHTML;
-}
 
 function eqText(row, F) {
   const n = row.length - 1;

@@ -27,11 +27,15 @@ function tokenize(src, { commaDecimal = false } = {}) {
     .replace(/÷/g, '/')
     .replace(/²/g, '^2')
     .replace(/³/g, '^3');
-  const isDecimalMark = (c) => c === '.' || (commaDecimal && c === ',');
+  let depth = 0;
+  // A comma is a decimal mark only at the top level ("0,5"); inside parentheses it separates arguments.
+  const isDecimalMark = (c) => c === '.' || (commaDecimal && c === ',' && depth === 0);
   const tokens = [];
   let i = 0;
   while (i < s.length) {
     const ch = s[i];
+    if (ch === '(') depth++;
+    else if (ch === ')') depth = Math.max(0, depth - 1);
     if (/\s/.test(ch)) { i++; continue; }
     if (/[0-9]/.test(ch) || (ch === '.' && /[0-9]/.test(s[i + 1] || ''))) {
       let j = i;

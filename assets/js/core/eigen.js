@@ -169,19 +169,65 @@ function realRootOfCubic(b, c, d) {
   return x;
 }
 
-function clusterRoots(roots, tol) {
-  const out = [];
-  for (const r of roots) {
-    const hit = out.find((o) => Math.hypot(o.re - r.re, o.im - r.im) <= tol * Math.max(1, Math.hypot(r.re, r.im)));
-    if (hit) {
-      hit.re = (hit.re * hit.mult + r.re) / (hit.mult + 1);
-      hit.im = (hit.im * hit.mult + r.im) / (hit.mult + 1);
-      hit.mult++;
-    } else out.push({ ...r, mult: 1 });
+const cabs = (z) => Math.hypot(z.re, z.im);
+const cdist = (a, b) => Math.hypot(a.re - b.re, a.im - b.im);
+
+function polyEvalComplex(coefs, z) {
+  let re = 0, im = 0;
+  for (const c of coefs) { const r = re * z.re - im * z.im + c; im = re * z.im + im * z.re; re = r; }
+  return { re, im };
+}
+const polyDeriv = (coefs) => coefs.slice(0, -1).map((c, i) => c * (coefs.length - 1 - i));
+
+/**
+ * Is μ a root of multiplicity ≥ k of the monic polynomial? Floating-point roots of a
+ * k-fold root scatter by about ε^{1/k}, so the derivatives p, p', …, p^{(k−1)} are
+ * checked at the mean with thresholds matching that accuracy.
+ */
+function isMultipleRoot(coefs, mu, k, scale) {
+  const n = coefs.length - 1;
+  const thr = k === 2 ? [1e-12, 1e-6] : [1e-12, 1e-8, 1e-3];
+  let c = coefs;
+  for (let j = 0; j < k; j++) {
+    if (cabs(polyEvalComplex(c, mu)) > thr[j] * Math.pow(scale, n - j)) return false;
+    c = polyDeriv(c);
   }
-  // Snap tiny imaginary parts (they come from rounding of real double roots).
-  for (const o of out) if (Math.abs(o.im) <= tol * Math.max(1, Math.abs(o.re))) o.im = 0;
-  return out;
+  return true;
+}
+
+function clusterRoots(roots, coefs, scale) {
+  const groups = [];
+  const absorb = (g, r, m = 1) => {
+    g.re = (g.re * g.mult + r.re * m) / (g.mult + m);
+    g.im = (g.im * g.mult + r.im * m) / (g.mult + m);
+    g.mult += m;
+  };
+  // Tight clustering: double roots are accurate to about √ε.
+  for (const r of roots) {
+    const hit = groups.find((o) => cdist(o, r) <= 1e-7 * Math.max(1, cabs(r)));
+    if (hit) absorb(hit, r); else groups.push({ ...r, mult: 1 });
+  }
+  // Looser merging (triple roots scatter by ~ε^{1/3}), accepted only when the
+  // polynomial really has a multiple root there.
+  for (let changed = true; changed;) {
+    changed = false;
+    for (let i = 0; i < groups.length && !changed; i++) {
+      for (let j = i + 1; j < groups.length && !changed; j++) {
+        const a = groups[i], b = groups[j];
+        if (cdist(a, b) > 1e-4 * Math.max(1, cabs(a))) continue;
+        const k = a.mult + b.mult;
+        const mu = { re: (a.re * a.mult + b.re * b.mult) / k, im: (a.im * a.mult + b.im * b.mult) / k };
+        if (k <= 3 && isMultipleRoot(coefs, mu, k, scale)) {
+          groups[i] = { ...mu, mult: k };
+          groups.splice(j, 1);
+          changed = true;
+        }
+      }
+    }
+  }
+  // Snap tiny imaginary parts (they come from rounding of real multiple roots).
+  for (const o of groups) if (Math.abs(o.im) <= 1e-7 * Math.max(1, Math.abs(o.re))) o.im = 0;
+  return groups;
 }
 
 function eigenNumeric(Af) {
@@ -198,7 +244,7 @@ function eigenNumeric(Af) {
   }
   let scale = 1;
   for (const row of Af) for (const v of row) scale = Math.max(scale, Math.abs(v));
-  const clustered = clusterRoots(roots, 1e-7);
+  const clustered = clusterRoots(roots, c, scale);
   const eigen = clustered.map(({ re, im, mult }) => {
     if (im === 0) {
       const Fr = FloatField(1e-6 * scale);
@@ -211,8 +257,6 @@ function eigenNumeric(Af) {
     const vectors = nullspace(shifted, Fc);
     return { value: { re, im }, field: Fc, alg: mult, geo: Math.max(1, vectors.length), vectors };
   });
-  // Order: real eigenvalues by decreasing value, complex ones afterwards with positive imaginary part first.
-  eigen.sort((a, b) => (a.value.im === 0) - (b.value.im === 0) || 0);
   return { poly: c, eigen };
 }
 

@@ -211,6 +211,10 @@ export function createLab(config) {
       views.classList.toggle('stage__views--2', views.children.length === 2);
       return v;
     },
+    clearViews() {
+      views.replaceChildren();
+      views.classList.remove('stage__views--2');
+    },
     setLegend(items) {
       legendItems.current = items;
       renderLegend();

@@ -52,6 +52,7 @@ export class Scene3D {
     this.labels = [];
     this.frame = null;
     this.onTheme = null;
+    this.unsubs = [];
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     this.renderer.setPixelRatio(Math.min(2.5, window.devicePixelRatio || 1));
@@ -72,7 +73,7 @@ export class Scene3D {
       const t = h('div', { class: 'view__title' });
       container.append(t);
       const upd = () => { t.textContent = tr(title); };
-      upd(); onLangChange(upd);
+      upd(); this.unsubs.push(onLangChange(upd));
     }
     this.buildTools();
     this.bindHandleEvents(); // before OrbitControls so we can disable it on handle hits
@@ -88,12 +89,24 @@ export class Scene3D {
     this.ro = new ResizeObserver(() => this.resize());
     this.ro.observe(container);
     this.resize();
-    onThemeChange(() => {
+    this.unsubs.push(onThemeChange(() => {
       this.readColors();
       this.buildStatic();
       if (this.onTheme) this.onTheme();
       this.requestRender();
-    });
+    }));
+  }
+
+  /** Frees the WebGL context and every listener (views are rebuilt when dimensions change). */
+  dispose() {
+    this.ro.disconnect();
+    cancelAnimationFrame(this.frame);
+    this.unsubs.forEach((u) => u());
+    this.controls.dispose();
+    disposeGroup(this.dynamic); disposeGroup(this.static); disposeGroup(this.handleGroup);
+    this.renderer.dispose();
+    this.renderer.forceContextLoss();
+    this.container.replaceChildren();
   }
 
   buildTools() {

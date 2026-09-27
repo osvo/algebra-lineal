@@ -29,7 +29,7 @@ function requestMathFonts() {
 }
 
 export class Plane2D {
-  constructor(container, { range = 4.5, center = [0, 0], pan = true, zoom = true, title = null, ariaLabel = null, minScale = 6, maxScale = 800 } = {}) {
+  constructor(container, { range = 4.5, fitWidth = null, center = [0, 0], pan = true, zoom = true, title = null, ariaLabel = null, minScale = 6, maxScale = 800 } = {}) {
     this.container = container;
     container.classList.add('view');
     container.tabIndex = 0;
@@ -41,7 +41,8 @@ export class Plane2D {
     this.canvas = h('canvas');
     container.append(this.canvas);
     this.ctx = this.canvas.getContext('2d');
-    this.opts = { range, center, pan, zoom, minScale, maxScale };
+    this.opts = { range, fitWidth, center, pan, zoom, minScale, maxScale };
+    this.unsubs = [];
     this.view = { cx: center[0], cy: center[1], scale: 60 };
     this.fitted = false;
     this.handles = [];
@@ -57,7 +58,7 @@ export class Plane2D {
       const t = h('div', { class: 'view__title' });
       container.append(t);
       const upd = () => { t.textContent = tr(title); };
-      upd(); onLangChange(upd);
+      upd(); this.unsubs.push(onLangChange(upd));
     }
     this.hint = h('div', { class: 'view__hint', hidden: true });
     container.append(this.hint);
@@ -83,8 +84,16 @@ export class Plane2D {
     this.ro = new ResizeObserver(() => this.resize());
     this.ro.observe(container);
     this.resize();
-    onThemeChange(() => { this.readColors(); this.render(); });
+    this.unsubs.push(onThemeChange(() => { this.readColors(); this.render(); }));
     requestMathFonts().then(() => this.requestRender());
+  }
+
+  dispose() {
+    this.ro.disconnect();
+    cancelAnimationFrame(this.frame);
+    this.unsubs.forEach((u) => u());
+    this.drawFn = null;
+    this.container.replaceChildren();
   }
 
   readColors() {
@@ -106,9 +115,9 @@ export class Plane2D {
   }
 
   fit() {
-    const { range, center } = this.opts;
+    const { range, center, fitWidth } = this.opts;
     this.view.cx = center[0]; this.view.cy = center[1];
-    this.view.scale = Math.min(this.h, this.w * 0.75) / (2 * range);
+    this.view.scale = fitWidth ? this.w / (2 * fitWidth) : Math.min(this.h, this.w * 0.75) / (2 * range);
   }
 
   resetView() { this.fit(); this.requestRender(); }
@@ -222,7 +231,8 @@ export class Plane2D {
       if (this.drag.type === 'handle') {
         const [wx, wy] = this.toWorld(sx, sy);
         const free = e.altKey;
-        this.drag.handle.set([this.snap(wx, free), this.snap(wy, free)]);
+        const hd = this.drag.handle;
+        hd.set(hd.snap ? hd.snap([wx, wy], free, this) : [this.snap(wx, free), this.snap(wy, free)]);
       } else if (this.drag.type === 'pan') {
         this.view.cx = this.drag.cx - (sx - this.drag.sx) / this.view.scale;
         this.view.cy = this.drag.cy + (sy - this.drag.sy) / this.view.scale;

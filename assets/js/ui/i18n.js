@@ -70,7 +70,8 @@ export function setLang(next) {
   url.searchParams.set('lang', lang);
   history.replaceState(history.state, '', url);
   for (const entry of bound) {
-    if (!entry.el.isConnected && !document.contains(entry.el)) continue;
+    // Elements removed from the page (e.g. rebuilt editors) are forgotten.
+    if (!entry.el.isConnected) { bound.delete(entry); continue; }
     applyEntry(entry);
   }
   for (const fn of listeners) fn(lang);

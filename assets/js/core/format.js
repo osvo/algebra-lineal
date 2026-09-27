@@ -6,11 +6,11 @@
 //  • Floats are "recognized" as a small-denominator rational or r·√m only when they
 //    match to 1e-9 relative precision; otherwise they are shown as decimals.
 
-import { Rational, bigGcd } from './rational.js';
+import { Rational, bigGcd, sqrtRational } from './rational.js';
 import { Surd } from './fields.js';
 
 const MINUS = '−';
-const RECOGNIZE_RADICANDS = [2, 3, 5, 6, 7];
+const RECOGNIZE_RADICANDS = [2, 3, 5, 6, 7, 10, 11, 13, 14, 15, 17];
 
 export function isReadable(r) {
   const n = r.n < 0n ? -r.n : r.n;
@@ -219,4 +219,22 @@ export function plainValue(v, digits = 2) {
 
 export function plainVector(values, digits = 2) {
   return `(${values.map((v) => plainValue(v, digits)).join(', ')})`;
+}
+
+/** (q)·√m as TeX, for a rational q and a square-free positive integer m (BigInt). */
+export function texRationalSqrt(q, m) {
+  if (q.isZero()) return '0';
+  if (m === 1n) return texRational(q);
+  const neg = q.sign() < 0;
+  const n = neg ? -q.n : q.n;
+  const num = n === 1n ? `\\sqrt{${m}}` : `${n}\\sqrt{${m}}`;
+  const body = q.d === 1n ? num : `\\frac{${num}}{${q.d}}`;
+  return `${neg ? '-' : ''}${body}`;
+}
+
+/** √r for a non-negative rational r, simplified (e.g. √8 = 2√2, √(1/2) = √2/2). */
+export function texSqrt(r) {
+  const s = sqrtRational(r);
+  if (!s) return `\\sqrt{${texRational(r)}}`;
+  return texRationalSqrt(s.coef, s.m);
 }

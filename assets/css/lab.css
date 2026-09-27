@@ -355,6 +355,8 @@ input[type="checkbox"] { accent-color: var(--acid); }
 .card__body > p { margin: 0; color: var(--muted); font-size: 13px; }
 .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .row--between { justify-content: space-between; }
+.op-builder select { width: auto; flex: 1 1 auto; min-width: 5.5em; }
+.op-builder select:first-child { flex-basis: 100%; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
 /* Readouts */
@@ -367,6 +369,7 @@ input[type="checkbox"] { accent-color: var(--acid); }
 .readout__note { grid-column: 1 / -1; margin-top: -2px; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
 .readout--block { grid-template-columns: 1fr; gap: 6px; }
 .badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border: 1px solid var(--line); border-radius: 999px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
+.readout__v .badge { white-space: normal; }
 .badge--ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
 .badge--warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
 .badge--danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, transparent); }

@@ -147,6 +147,22 @@ export class Scene3D {
     if (render) this.requestRender();
   }
 
+  /** Looks at the origin from direction `dir` (z stays up). */
+  setViewDir(dir, render = true) {
+    const d = new THREE.Vector3(...dir);
+    if (d.length() < 1e-9) return;
+    d.normalize().multiplyScalar(40);
+    this.camera.position.copy(d);
+    this.camera.up.set(0, 0, 1);
+    this.camera.zoom = 1;
+    this.camera.lookAt(0, 0, 0);
+    this.controls.target.set(0, 0, 0);
+    this.controls.update();
+    this.camera.updateProjectionMatrix();
+    this.updateHandleScale();
+    if (render) this.requestRender();
+  }
+
   resize() {
     const r = this.container.getBoundingClientRect();
     const w = Math.max(1, r.width), hh = Math.max(1, r.height);

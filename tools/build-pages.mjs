@@ -6,7 +6,7 @@ import { writeFileSync } from 'node:fs';
 import { MODULES } from '../assets/js/modules/registry.js';
 
 const SITE = 'https://osvo.github.io/algebra-lineal/';
-const THREE_PAGES = new Set(['t3d', 'nsq', 'sys', 'orth', 'svd']);
+const THREE_PAGES = new Set(['t3d', 'nsq', 'sys', 'orth']);
 
 const LEADS = {
   t2d: 'Una matriz 2 × 2 mueve el plano entero: determinante, vectores propios, núcleo, imagen e inversa, de forma interactiva y exacta.',

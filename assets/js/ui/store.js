@@ -143,6 +143,14 @@ export const codec = {
     },
     format: (v) => v.map((e) => e.text.replace(/,/g, '.').replace(/\s+/g, '')).join(','),
   }),
+  /** A single 2D point "x:y". */
+  point: () => ({
+    parse(s) {
+      const p = s.split(':').map(Number);
+      return p.length === 2 && p.every(Number.isFinite) ? p : undefined;
+    },
+    format: (p) => p.map((x) => numberToInput(x)).join(':'),
+  }),
   /** List of 2D points "x:y|x:y". */
   points: () => ({
     parse(s) {

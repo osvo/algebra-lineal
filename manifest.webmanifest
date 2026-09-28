@@ -1,0 +1,17 @@
+{
+  "name": "Laboratorio de Álgebra Lineal",
+  "short_name": "Álgebra lineal",
+  "description": "Laboratorio interactivo y bilingüe de álgebra lineal: transformaciones, sistemas, cambio de base, valores propios, ortogonalidad y SVD.",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0c0f0d",
+  "theme_color": "#0c0f0d",
+  "icons": [
+    { "src": "assets/img/icon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "assets/img/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/img/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "assets/img/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

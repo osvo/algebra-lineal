@@ -81,6 +81,7 @@ createLab({
     A: { def: M(DEFAULTS[2].A), codec: codec.anyMatrix() },
     b: { def: V(DEFAULTS[2].b), codec: codec.vector(null) },
     ops: { def: '', codec: codec.str(2000) },
+    aug: { def: 'b', codec: codec.enum(['b', 'I']) },
     view: { def: 'rows', codec: codec.enum(['rows', 'cols']) },
     x: { def: [0, 0, 0], codec: { parse: (s) => { const v = s.split(',').map(Number); return v.length === 3 && v.every(Number.isFinite) ? v : undefined; }, format: (v) => v.map((a) => numberToInput(a)).join(',') } },
     show: { def: ['orig'], codec: codec.flags(['orig', 'sol']) },
@@ -160,9 +161,14 @@ createLab({
     const manual = h('div', { class: 'row op-builder' }, opType, opI, opJ, opC, applyBtn);
     const history = h('ol', { class: 'mono', style: { margin: 0, paddingLeft: '1.4em', display: 'grid', gap: '4px', fontSize: '13px' } });
     const eChips = [flagChip(store, 'show', 'orig', { es: 'Ver sistema original', en: 'Show original system' }, 'var(--muted)')];
+    const augSeg = segmented({
+      options: [{ value: 'b', tex: '[\\,A\\,|\\,\\vec{b}\\,]' }, { value: 'I', tex: '[\\,A\\,|\\,I\\,]\\to[\\,I\\,|\\,A^{-1}\\,]' }],
+      get: () => store.get('aug'), set: (aug) => store.set({ aug, ops: '' }),
+      label: { es: 'Matriz aumentada', en: 'Augmented matrix' },
+    });
     const elimCard = card({
       title: { es: 'Eliminación gaussiana', en: 'Gaussian elimination' },
-      body: [augTex, phase, h('div', { class: 'row' }, nextBtn, allBtn, undoBtn, clearBtn), nextDesc, manual, opMsg, history, h('div', { class: 'chip-row' }, eChips.map((c) => c.el))],
+      body: [augSeg.el, augTex, phase, h('div', { class: 'row' }, nextBtn, allBtn, undoBtn, clearBtn), nextDesc, manual, opMsg, history, h('div', { class: 'chip-row' }, eChips.map((c) => c.el))],
     });
 
     // Column picture coefficients
@@ -184,6 +190,7 @@ createLab({
       cls: readout({ es: 'Clasificación', en: 'Classification' }, { block: true }),
       sol: readout({ es: 'Soluciones', en: 'Solutions' }, { block: true }),
       E: readout({ es: 'Matriz de las operaciones', en: 'Matrix of the operations' }, { block: true }),
+      lu: readout({ es: 'Factorización LU', en: 'LU factorization' }, { block: true }),
     };
     const resultsCard = card({ title: { es: 'Resultado exacto', en: 'Exact result' }, body: [h('div', { class: 'readouts' }, Object.values(r).map((x) => x.el))] });
     ctx.panel.append(inputCard.el, elimCard.el, colsCard.el, resultsCard.el);
@@ -209,6 +216,18 @@ createLab({
     function draw2D(g, c) {
       g.backgroundGrid();
       const { Cur, Orig, F, sol, state } = c;
+      if (state.aug === 'I') {
+        const cols = (Mx) => [0, 1].map((j) => Mx.map((row) => F.toNumber(row[j])));
+        const a0 = cols(Orig), a = cols(Cur);
+        if (Math.abs(a0[0][0] * a0[1][1] - a0[0][1] * a0[1][0]) > 1e-12) g.transformedGrid([[a0[0][0], a0[1][0]], [a0[0][1], a0[1][1]]], { color: g.c.muted, alpha: 0.35, axes: false, width: 1 });
+        g.transformedGrid([[a[0][0], a[1][0]], [a[0][1], a[1][1]]], { color: g.c.tgrid, alpha: 0.8, axes: false, width: 1.2 });
+        g.polygon([[0, 0], a[0], [a[0][0] + a[1][0], a[0][1] + a[1][1]], a[1]], { fill: g.c.det, fillAlpha: 0.18 });
+        g.arrow([0, 0], a[0], { color: g.c.i, width: 3.5 });
+        g.arrow([0, 0], a[1], { color: g.c.j, width: 3.5 });
+        g.text(a[0], 'Ea₁', { color: g.c.i, offset: [12, -12], font: '"KaTeX_Main", serif', size: 16, italic: true });
+        g.text(a[1], 'Ea₂', { color: g.c.j, offset: [12, -12], font: '"KaTeX_Main", serif', size: 16, italic: true });
+        return;
+      }
       if (state.view === 'rows') {
         if (state.show.includes('orig') && c.changed) Orig.forEach((row, i) => drawLine(g, row, g.c[ROW_COLORS[i]], true, i, F));
         Cur.forEach((row, i) => drawLine(g, row, g.c[ROW_COLORS[i]], false, i, F));
@@ -257,6 +276,18 @@ createLab({
     function draw3D(sc, c) {
       sc.clear();
       const { Cur, Orig, F, sol, state } = c;
+      if (state.aug === 'I') {
+        const Mf = Cur.map((row) => row.slice(0, 3).map((v) => F.toNumber(v)));
+        sc.parallelepiped(Orig.map((row) => row.slice(0, 3).map((v) => F.toNumber(v))), 'muted', { opacity: 0.05 });
+        sc.parallelepiped(Mf, 'det', { opacity: 0.2 });
+        ['i', 'j', 'k'].forEach((key, j) => {
+          const col = Mf.map((row) => row[j]);
+          sc.arrow([0, 0, 0], col, key);
+          sc.label(col, `E\\mathbf{a}_{${j + 1}}`, key, { tex: true, offset: [12, -10] });
+        });
+        sc.requestRender();
+        return;
+      }
       if (state.view === 'rows') {
         if (state.show.includes('orig') && c.changed) Orig.forEach((row, i) => {
           const nrm = row.slice(0, 3).map((v) => F.toNumber(v));
@@ -297,7 +328,9 @@ createLab({
     // Elimination helpers ---------------------------------------------------------
     function systemField(state) {
       const n = +state.n;
-      const aug = state.A.map((row, i) => [...row, state.b[i]]);
+      const aug = state.aug === 'I'
+        ? state.A.map((row, i) => [...row, ...row.map((_, j) => makeEntry(i === j ? '1' : '0'))])
+        : state.A.map((row, i) => [...row, state.b[i]]);
       const ops = parseOps(state.ops);
       const cEntries = ops.filter((o) => o.type !== 'swap').map((o) => makeEntry(o.cText));
       const all = [...aug, cEntries.length ? cEntries : [makeEntry('1')]];
@@ -361,19 +394,25 @@ createLab({
         fillOps();
         rebuildPresets();
       }
-      editor.update(); bEditor.update(); sizeSeg.update(); viewSeg.update();
+      editor.update(); bEditor.update(); sizeSeg.update(); viewSeg.update(); augSeg.update();
+      const invMode = state.aug === 'I';
+      bEditor.el.hidden = invMode;
+      setText(r.sol.el.firstChild, invMode ? { es: 'Inversa', en: 'Inverse' } : { es: 'Soluciones', en: 'Solutions' });
+      viewSeg.el.hidden = invMode;
       eChips.forEach((c) => c.update());
       xSliders.forEach((s, k) => { s.update(); s.el.hidden = k >= n; });
-      colsCard.el.hidden = state.view !== 'cols';
+      colsCard.el.hidden = state.view !== 'cols' || invMode;
 
       const { F, Orig, Cur, applied } = systemField(state);
       const changed = applied.length > 0;
-      const sol = L.solve(Orig.map((r2) => r2.slice(0, n)), Orig.map((r2) => r2[n]), F);
+      const Aorig = Orig.map((r2) => r2.slice(0, n));
+      const sol = invMode ? L.solve(Aorig, Aorig.map(() => F.zero), F) : L.solve(Aorig, Orig.map((r2) => r2[n]), F);
       cur = { Cur, Orig, F, sol, state, changed };
       lastDerived = { F, sol };
       if (view instanceof Plane2D) view.requestRender(); else draw3D(view, cur);
 
-      renderTex(sysTex, systemTex(Orig, F, n), { display: true });
+      sysTex.hidden = invMode;
+      if (!invMode) renderTex(sysTex, systemTex(Orig, F, n), { display: true });
       // Leading entries that already form a staircase (the pivots found so far).
       const pivots = [];
       for (const row of Cur) {
@@ -397,6 +436,28 @@ createLab({
       history.replaceChildren(...applied.map((op) => h('li', { html: texInline(opTex(op, F)) })));
 
       // Readouts
+      r.lu.set(luTex(Aorig, F), { es: 'Factorización LU: L guarda los multiplicadores de la eliminación hacia abajo y U es la escalonada que resulta. Con intercambios de filas aparece una matriz de permutación P.', en: 'LU factorization: L stores the multipliers of the downward elimination and U is the resulting echelon form. Row swaps add a permutation matrix P.' });
+      if (invMode) {
+        const rank = sol.rankA;
+        const leftI = Cur.every((row, i) => row.slice(0, n).every((v, j) => (i === j ? F.eq(v, F.one) : F.isZero(v))));
+        r.cls.set({ html: `<span class="badge ${rank === n ? 'badge--ok' : 'badge--danger'}">${tr(rank === n ? { es: 'A es invertible', en: 'A is invertible' } : { es: 'A no es invertible', en: 'A is not invertible' })}</span>` },
+          { html: texInline(`${rankOp()} A = ${rank},\\; n = ${n}`) });
+        if (leftI) r.sol.set(`A^{-1} = ${cls('c-sol', texMatrix(Cur.map((row) => row.slice(n))))}`, { es: 'El bloque izquierdo ya es I, así que el derecho es A⁻¹.', en: 'The left block is already I, so the right block is A⁻¹.' });
+        else if (reducedLeft(Cur, F, n) && rank < n) r.sol.set(`\\text{${tr({ es: 'no existe: queda una fila de ceros a la izquierda', en: 'does not exist: a zero row remains on the left' })}}`);
+        else r.sol.set(`\\text{${tr({ es: 'sigue reduciendo hasta que la izquierda sea I', en: 'keep reducing until the left block is I' })}}`);
+        if (applied.length) {
+          let E = L.identity(n, F);
+          for (const op of applied) E = L.matMul(L.elementaryMatrix(n, op, F), E, F);
+          r.E.set(`E = E_{${applied.length}}\\cdots E_{1} = ${texMatrix(E)},\\qquad E\\,[\\,A\\,|\\,I\\,] = [\\,EA\\,|\\,E\\,]`, { es: 'El bloque derecho siempre es E, el producto de las matrices elementales. Cuando EA = I, E = A⁻¹.', en: 'The right block is always E, the product of the elementary matrices. When EA = I, E = A⁻¹.' });
+          r.E.show(true);
+        } else r.E.show(false);
+        ctx.setLegend([
+          { color: 'var(--c-i)', tex: 'E\\mathbf{a}_1' }, { color: 'var(--c-j)', tex: 'E\\mathbf{a}_2' }, n === 3 && { color: 'var(--c-k)', tex: 'E\\mathbf{a}_3' },
+          { color: 'var(--tgrid)', label: { es: 'cuadrícula transformada por EA', en: 'grid transformed by EA' } },
+          { color: 'var(--muted)', kind: 'dash', label: { es: 'cuadrícula de A', en: 'grid of A' } },
+        ]);
+        return { F, sol, Cur, n, applied, reduced, Orig, inv: leftI ? Cur.map((row) => row.slice(n)) : null };
+      }
       const rA = sol.rankA, rAb = sol.rankAb;
       const statusBadge = { unique: ['badge--ok', { es: 'Compatible determinado: solución única', en: 'Consistent, independent: unique solution' }], infinite: ['badge--warn', { es: 'Compatible indeterminado: infinitas soluciones', en: 'Consistent, dependent: infinitely many solutions' }], none: ['badge--danger', { es: 'Incompatible: sin solución', en: 'Inconsistent: no solution' }] }[sol.status];
       r.cls.set({ html: `<span class="badge ${statusBadge[0]}">${tr(statusBadge[1])}</span>` }, {
@@ -497,6 +558,14 @@ createLab({
 
   challenges: [
     {
+      id: 'inverse',
+      title: { es: 'La inversa a mano', en: 'The inverse by hand' },
+      text: { es: 'Con $A = \\begin{bmatrix}2&1\\\\5&3\\end{bmatrix}$ y la matriz aumentada $[\\,A\\,|\\,I\\,]$, llega a $[\\,I\\,|\\,A^{-1}\\,]$ usando solo operaciones manuales.', en: 'With $A = \\begin{bmatrix}2&1\\\\5&3\\end{bmatrix}$ and the augmented matrix $[\\,A\\,|\\,I\\,]$, reach $[\\,I\\,|\\,A^{-1}\\,]$ using manual operations only.' },
+      hint: { es: 'Por ejemplo: $R_2 \\leftarrow R_2 - \\tfrac52 R_1$, luego $R_2 \\leftarrow 2R_2$, $R_1 \\leftarrow R_1 - \\tfrac12 R_2$ y $R_1 \\leftarrow \\tfrac12 R_1$. Como $\\det A = 1$, $A^{-1}$ tiene entradas enteras.', en: 'For instance: $R_2 \\leftarrow R_2 - \\tfrac52 R_1$, then $R_2 \\leftarrow 2R_2$, $R_1 \\leftarrow R_1 - \\tfrac12 R_2$ and $R_1 \\leftarrow \\tfrac12 R_1$. Since $\\det A = 1$, $A^{-1}$ has integer entries.' },
+      setup: (store) => store.set({ n: '2', A: M([[2, 1], [5, 3]]), b: V([1, 1]), aug: 'I', ops: '' }),
+      check: (s, d) => s.aug === 'I' && s.n === '2' && [[2, 1], [5, 3]].every((row, i) => row.every((x, k) => s.A[i][k].x === x)) && !!d.inv && d.applied.length > 0 && d.applied.every((op) => !op.auto),
+    },
+    {
       id: 'none2',
       title: { es: 'Sin solución', en: 'No solution' },
       text: { es: 'Modifica el sistema $2\\times 2$ para que sea incompatible.', en: 'Modify the $2\\times 2$ system so that it is inconsistent.' },
@@ -572,7 +641,7 @@ function augmentedTex(Aug, F, n, pivots) {
     const t = texValue(v);
     return pivotSet.has(`${i},${j}`) ? `\\htmlClass{c-accent}{\\boxed{${t}}}` : t;
   }).join(' & '));
-  return `\\left[\\begin{array}{${'c'.repeat(n)}|c} ${rows.join(' \\\\ ')} \\end{array}\\right]`;
+  return `\\left[\\begin{array}{${'c'.repeat(n)}|${'c'.repeat(Aug[0].length - n)}} ${rows.join(' \\\\ ')} \\end{array}\\right]`;
 }
 
 function distinctRows(Aug, F) {
@@ -585,4 +654,14 @@ function distinctRows(Aug, F) {
   };
   for (let i = 0; i < Aug.length; i++) for (let j = i + 1; j < Aug.length; j++) if (proportional(Aug[i], Aug[j])) return false;
   return true;
+}
+
+/** Is the left n × n block in reduced echelon form (so elimination has nothing left to do there)? */
+function reducedLeft(Aug, F, n) {
+  return L.isRREF(Aug.map((row) => row.slice(0, n)), F, n);
+}
+
+function luTex(A, F) {
+  const { L: Lm, U, P, swapped } = L.lu(A, F);
+  return `${swapped ? `P A = ${texMatrix(P)}A = ` : 'A = '}${texMatrix(Lm)}${texMatrix(U)}`;
 }

@@ -229,8 +229,119 @@ await check('PNG export with several views (2D + 3D)', async () => {
   }
 });
 
+await check('KaTeX accents such as \\vec are drawn (non-zero SVG width)', async () => {
+  const { page, context, errors } = await openPage('combinaciones_lineales.html');
+  const widths = await page.$$eval('.katex svg', (els) => els.filter((e) => e.getClientRects().length && e.closest('[hidden]') === null).map((e) => e.getBoundingClientRect().width));
+  assert.ok(widths.length > 0, 'there are accent SVGs');
+  assert.ok(widths.every((w) => w > 0), `zero-width accents: ${widths.filter((w) => w <= 0).length}`);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+await check('span: dependency relation and target coefficients are exact', async () => {
+  const { page, context, errors } = await openPage('combinaciones_lineales.html?k=3&show=path.span.w');
+  const tex = (await page.locator('.panel annotation').allTextContents()).join(' | ');
+  assert.match(tex, /\\vec\{v\}_\{3\}\} = \\mathbf\{0\}/, 'a relation ending in = 0');
+  assert.match(tex, /\\vec\{w\} = 2\\,/, 'w = 2 v₁ + …');
+  await page.getByRole('button', { name: /Usar estos coeficientes/ }).click();
+  await page.waitForTimeout(150);
+  assert.match(await page.locator('.panel').innerText(), /¡u ya es w!/);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+await check('span: 3D view and dragging the tip of u changes the coefficients', async () => {
+  const { page, context, errors } = await openPage('combinaciones_lineales.html');
+  const before = await page.locator('.panel .matrix input').nth(4).inputValue();
+  const box = await page.locator('.view canvas').boundingBox();
+  const scale = await page.evaluate(() => { const r = document.querySelector('.view').getBoundingClientRect(); return Math.min(r.height, r.width * 0.75) / (2 * 4.2); });
+  const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
+  // u = v₁ + v₂ = (1, 2) by default.
+  await page.mouse.move(cx + 1 * scale, cy - 2 * scale);
+  await page.mouse.down();
+  await page.mouse.move(cx + 3 * scale, cy - 3 * scale, { steps: 8 });
+  await page.mouse.up();
+  const after = await page.locator('.panel .matrix input').nth(4).inputValue();
+  assert.notEqual(before, after, 'c₁ changed');
+  await page.locator('.panel .seg').first().locator('button').nth(1).click();
+  await page.waitForTimeout(300);
+  assert.equal(await page.locator('.stage canvas').count(), 1);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+await check('determinants: a shear keeps det, applying it updates A; Cramer and cofactors are exact', async () => {
+  const { page, context, errors } = await openPage('determinantes.html');
+  await page.getByRole('button', { name: /Aplicar a A/ }).click();
+  await page.waitForTimeout(150);
+  const vals = await page.locator('.panel .matrix input').evaluateAll((els) => els.slice(0, 4).map((e) => e.value));
+  assert.deepEqual(vals, ['3', '4', '1', '3'], 'â₂ ← â₂ + â₁');
+  let tex = (await page.locator('.panel annotation').allTextContents()).join(' | ');
+  assert.match(tex, /= 5/);
+  await page.getByRole('button', { name: 'Cramer', exact: true }).click();
+  await page.waitForTimeout(150);
+  tex = (await page.locator('.panel annotation').allTextContents()).join(' | ');
+  assert.match(tex, /x_1 = \\frac\{\\det/);
+  await page.getByRole('button', { name: /Volumen 3D/ }).click();
+  await page.waitForTimeout(300);
+  tex = (await page.locator('.panel annotation').allTextContents()).join(' | ');
+  assert.match(tex, /= 3/, 'det of the default 3 × 3 matrix');
+  assert.match(tex, /\\begin\{vmatrix\}/, 'cofactor expansion');
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+await check('quadratic forms: editing b mirrors it and the classification changes', async () => {
+  const { page, context, errors } = await openPage('formas_cuadraticas.html');
+  const cells = page.locator('.panel .matrix input');
+  await cells.nth(1).fill('3');
+  await page.waitForTimeout(200);
+  assert.equal(await cells.nth(2).inputValue(), '3', 'symmetric');
+  assert.match(await page.locator('.panel').innerText(), /Indefinida/);
+  const tex = (await page.locator('.panel annotation').allTextContents()).join(' | ');
+  assert.match(tex, /\\lambda_1 = 5/);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+await check('polynomials: interpolation through four points is exact', async () => {
+  const { page, context, errors } = await openPage('polinomios.html?mode=interp&deg=3');
+  const tex = (await page.locator('.panel annotation').allTextContents()).join(' | ');
+  assert.match(tex, /= 12/, 'Vandermonde determinant');
+  assert.match(tex, /-\\frac\{1\}\{3\}x\^\{3\}/, 'leading coefficient −1/3');
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+await check('systems: [A | I] reaches the exact inverse and shows LU', async () => {
+  const { page, context, errors } = await openPage('sistemas_lineales.html?aug=I');
+  await page.getByRole('button', { name: /Hasta el final/ }).click();
+  await page.waitForTimeout(150);
+  const tex = (await page.locator('.panel annotation').allTextContents()).join(' | ');
+  assert.match(tex, /A\^\{-1\} = /);
+  assert.match(tex, /\\frac\{1\}\{7\}/, 'inverse of [[1,2],[3,−1]] has sevenths');
+  assert.match(tex, /A = \\begin\{bmatrix\} 1 & 0 \\\\ 3 & 1 \\end\{bmatrix\}/, 'L of A = LU');
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+await check('eigen: continuous flow classifies a stable spiral', async () => {
+  const { page, context, errors } = await openPage('valores_propios.html?mode=dyn&flow=cont&A=-1,-2;2,-1');
+  assert.match(await page.locator('.panel').innerText(), /Espiral estable/);
+  assert.equal(await page.locator('.panel svg[role="img"]').count(), 1, 'trace–determinant diagram');
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+await check('non-square: the four subspaces are orthogonal pairs', async () => {
+  const { page, context, errors } = await openPage('matrices_no_cuadradas.html?dims=2x3&show=img.ker.row.lnull');
+  assert.match(await page.locator('.panel').innerText(), /Comprobado con aritmética exacta/);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
 await check('mobile layout has no horizontal overflow', async () => {
-  for (const path of ['index.html', 'transformaciones_2D.html', 'sistemas_lineales.html', 'ortogonalidad.html']) {
+  for (const path of ['index.html', 'transformaciones_2D.html', 'sistemas_lineales.html', 'ortogonalidad.html', 'combinaciones_lineales.html', 'determinantes.html', 'formas_cuadraticas.html', 'polinomios.html']) {
     const { page, context, errors } = await openPage(path, { width: 390, height: 844 });
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     assert.ok(overflow <= 1, `${path}: horizontal overflow of ${overflow}px`);

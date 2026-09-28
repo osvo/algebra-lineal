@@ -143,6 +143,8 @@ body {
   font-size: 15px;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+  /* Manrope turns "(c)" into "©" through a standard ligature; math text needs the literal characters. */
+  font-variant-ligatures: none;
 }
 
 html[data-loading] body { opacity: 0; animation: reveal 0s 1.2s forwards; }
@@ -150,6 +152,8 @@ html[data-loading] body { opacity: 0; animation: reveal 0s 1.2s forwards; }
 
 a { color: inherit; }
 img, svg, canvas { display: block; max-width: 100%; }
+/* KaTeX draws accents such as \vec with absolutely positioned SVGs; the rule above would give them zero width. */
+.katex svg { max-width: none; }
 button, input, select, textarea { font: inherit; color: inherit; }
 ::selection { color: var(--accent-ink); background: var(--acid); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

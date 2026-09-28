@@ -156,8 +156,6 @@ export function texVector(values, { cls: klass = null, raw = false, ...opts } = 
   return klass ? cls(klass, tex) : tex;
 }
 
-/** Augmented matrix [A | b] with a vertical bar. */
-
 /** Monic-leading polynomial with coefficients [c_n, …, c_0] in variable `x`. */
 export function texPoly(coefs, x = '\\lambda', opts = {}) {
   const deg = coefs.length - 1;

@@ -3,7 +3,7 @@
 import { RationalField } from '../core/fields.js';
 import * as L from '../core/linalg.js';
 import { eigenAnalysis } from '../core/eigen.js';
-import { texValue, texMatrix, texVector, texPoly, texSurdPair, cls } from '../core/format.js';
+import { texValue, texMatrix, texVector, texPoly, texSurdPair, cls, scalarNumber } from '../core/format.js';
 import { Surd } from '../core/fields.js';
 import { getLang } from '../ui/i18n.js';
 import { makeEntry } from '../core/parse.js';
@@ -143,6 +143,23 @@ export function memo(fn) {
     lastVal = fn(...args);
     return lastVal;
   };
+}
+
+/**
+ * c₁·t₁ + c₂·t₂ + … as TeX. Coefficients are scalars of any field; terms are TeX
+ * strings. Zero coefficients are skipped (0 if all vanish) and 1, −1 are implicit.
+ */
+export function texCombo(coefs, terms, { zero = '\\mathbf{0}' } = {}) {
+  let out = '';
+  coefs.forEach((c, i) => {
+    if (Math.abs(scalarNumber(c)) < 1e-12) return;
+    let t = texValue(c);
+    const neg = t.startsWith('-');
+    if (neg) t = t.slice(1);
+    const coef = t === '1' ? '' : /[+-]/.test(t) ? `(${t})\\,` : `${t}\\,`;
+    out += `${out ? (neg ? ' - ' : ' + ') : neg ? '-' : ''}${coef}${terms[i]}`;
+  });
+  return out || zero;
 }
 
 export const entriesKey = (m) => m.map((row) => row.map((e) => e.text).join(',')).join(';');

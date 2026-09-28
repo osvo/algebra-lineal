@@ -7,19 +7,24 @@ import { createHash } from 'node:crypto';
 import { join, relative } from 'node:path';
 import { MODULES } from '../assets/js/modules/registry.js';
 
-const SITE = 'https://osvo.github.io/algebra-lineal/';
-const THREE_PAGES = new Set(['t3d', 'nsq', 'sys', 'orth']);
+// GitHub Pages serves the site from the custom domain (osvo.github.io redirects there).
+const SITE = 'https://osvo.com.co/algebra-lineal/';
+const THREE_PAGES = new Set(['span', 't3d', 'det', 'nsq', 'sys', 'orth']);
 
 const LEADS = {
+  span: 'Combinaciones lineales, generado, independencia lineal, bases y dimensión en ℝ² y ℝ³, con ecuaciones exactas del generado.',
   t2d: 'Una matriz 2 × 2 mueve el plano entero: determinante, vectores propios, núcleo, imagen e inversa, de forma interactiva y exacta.',
   comp: 'Encadena dos transformaciones del plano y comprueba visualmente por qué el producto de matrices no conmuta.',
   t3d: 'Rotaciones, proyecciones, reflexiones y cizallas en el espacio: volumen, rango, ejes invariantes e inversa exacta.',
+  det: 'Determinantes: área y volumen con signo, efecto de las operaciones de columna, regla de Cramer geométrica y desarrollo por cofactores.',
   sys: 'Sistemas de ecuaciones lineales 2 × 2 y 3 × 3: imagen de filas, imagen de columnas y eliminación gaussiana paso a paso.',
   nsq: 'Matrices no cuadradas como transformaciones entre espacios de distinta dimensión: imagen, núcleo y teorema del rango.',
   cob: 'Cambio de base: coordenadas de un mismo vector en dos bases y matrices semejantes P⁻¹AP.',
   eig: 'Valores y vectores propios: direcciones invariantes, dinámica discreta, diagonalización y forma de rotación-escalado.',
   orth: 'Producto punto, proyecciones ortogonales, Gram–Schmidt y mínimos cuadrados como proyección sobre el espacio columna.',
+  quad: 'Formas cuadráticas y teorema espectral: cónicas como curvas de nivel, ejes principales, matrices definidas positivas y cociente de Rayleigh.',
   svd: 'Descomposición en valores singulares: el círculo unitario se convierte en una elipse; A = UΣVᵀ paso a paso.',
+  poly: 'Espacios de polinomios: coordenadas en bases de monomios, Taylor, Lagrange y Legendre, la derivada como matriz e interpolación con Vandermonde.',
   nl: 'Transformaciones no lineales del plano, pruebas de linealidad y la matriz jacobiana como aproximación lineal local.',
 };
 
@@ -80,6 +85,8 @@ ${NOSCRIPT}
 const T = (es, en, tag = 'span', attrs = '') => `<${tag} data-es="${es.replace(/"/g, '&quot;')}" data-en="${en.replace(/"/g, '&quot;')}"${attrs}>${es}</${tag}>`;
 
 const TOTAL = MODULES.reduce((s, m) => s + m.challenges, 0);
+const WORDS = { es: ['Diez', 'Once', 'Doce', 'Trece', 'Catorce', 'Quince', 'Dieciséis', 'Diecisiete', 'Dieciocho'], en: ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen'] };
+const COUNT_WORD = { es: WORDS.es[MODULES.length - 10] || String(MODULES.length), en: WORDS.en[MODULES.length - 10] || String(MODULES.length) };
 const FEATURES = [
   ['ℚ', 'Exacto', 'Exact', 'Escribe 1/3, √2 o cos(π/6). Determinantes, inversas, valores propios y proyecciones se calculan con fracciones y radicales exactos.', 'Type 1/3, √2 or cos(π/6). Determinants, inverses, eigenvalues and projections are computed with exact fractions and radicals.'],
   ['∴', 'Explicado', 'Explained', 'Cada módulo explica qué estás viendo y trae una sección «Formalmente» con definiciones y teoremas enunciados con precisión.', 'Every module explains what you are seeing and has a “Formally” section with precisely stated definitions and theorems.'],
@@ -90,7 +97,7 @@ const FEATURES = [
 const home = `<!doctype html>
 <html lang="es" data-loading>
 <head>
-${head({ title: 'Laboratorio de Álgebra Lineal · Las matrices también se mueven', description: 'Laboratorio interactivo y bilingüe para aprender álgebra lineal de forma visual y exacta: transformaciones, sistemas, cambio de base, valores propios, ortogonalidad y SVD.', path: '' })}
+${head({ title: 'Laboratorio de Álgebra Lineal · Las matrices también se mueven', description: 'Laboratorio interactivo y bilingüe para aprender álgebra lineal de forma visual y exacta: combinaciones lineales, transformaciones, determinantes, sistemas, cambio de base, valores propios, ortogonalidad, formas cuadráticas, SVD y espacios de polinomios.', path: '' })}
 <script type="module" src="assets/js/home.js"></script>
 </head>
 <body class="home">
@@ -102,9 +109,9 @@ ${head({ title: 'Laboratorio de Álgebra Lineal · Las matrices también se muev
       <h1 data-es="Las matrices también se &lt;em&gt;mueven.&lt;/em&gt;" data-en="Matrices move, &lt;em&gt;too.&lt;/em&gt;" data-html>Las matrices también se <em>mueven.</em></h1>
     </div>
     <div class="hero-copy">
-      ${T('Arrastra un vector, cambia una base y observa cómo responde el espacio. Diez laboratorios que convierten operaciones abstractas en intuición visible, con cálculos exactos y explicaciones rigurosas.', 'Drag a vector, change a basis and watch space respond. Ten labs that turn abstract operations into visible intuition, with exact computations and rigorous explanations.', 'p')}
+      ${T(`Arrastra un vector, cambia una base y observa cómo responde el espacio. ${COUNT_WORD.es} laboratorios que convierten operaciones abstractas en intuición visible, con cálculos exactos y explicaciones rigurosas.`, `Drag a vector, change a basis and watch space respond. ${COUNT_WORD.en} labs that turn abstract operations into visible intuition, with exact computations and rigorous explanations.`, 'p')}
       <div class="hero-actions">
-        <a class="btn btn--primary" href="transformaciones_2D.html">${T('Empezar por el módulo 01', 'Start with module 01')}</a>
+        <a class="btn btn--primary" href="${MODULES[0].file}">${T('Empezar por el módulo 01', 'Start with module 01')}</a>
         <a class="btn" href="#modulos">${T('Ver todos los módulos', 'See all modules')}</a>
       </div>
       <p class="credit">${T('Proyecto independiente inspirado en las matemáticas visuales de', 'Independent project inspired by the visual mathematics of')} <a href="https://www.3blue1brown.com/" target="_blank" rel="noopener noreferrer">3Blue1Brown ↗</a></p>
@@ -120,8 +127,8 @@ ${FEATURES.map(([sym, es, en, des, den]) => `      <div class="feature"><span ar
 
   <section class="modules" id="modulos">
     <div class="section-head">
-      ${T('Diez formas de ver lo invisible.', 'Ten ways to see the invisible.', 'h2')}
-      ${T('Un recorrido sugerido: del plano al espacio, de los sistemas a los subespacios, del cambio de base al espectro, y de la geometría euclídea a lo que ya no es lineal. Cada módulo es independiente.', 'A suggested path: from the plane to space, from systems to subspaces, from change of basis to the spectrum, and from Euclidean geometry to what is no longer linear. Every module stands on its own.', 'p')}
+      ${T(`${COUNT_WORD.es} formas de ver lo invisible.`, `${COUNT_WORD.en} ways to see the invisible.`, 'h2')}
+      ${T('Un recorrido sugerido: de las combinaciones de flechas a las transformaciones, de los sistemas a los subespacios, del cambio de base al espectro, de la geometría euclídea a los espacios de funciones y a lo que ya no es lineal. Cada módulo es independiente.', 'A suggested path: from combining arrows to transformations, from systems to subspaces, from change of basis to the spectrum, from Euclidean geometry to function spaces and to what is no longer linear. Every module stands on its own.', 'p')}
     </div>
     <div id="module-list"></div>
     <noscript><ul>${MODULES.map((m) => `<li><a href="${m.file}">${m.title.es}</a></li>`).join('')}</ul></noscript>

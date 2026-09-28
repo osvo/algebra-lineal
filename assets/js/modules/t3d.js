@@ -322,10 +322,10 @@ createLab({
       if (show.includes('ker')) {
         const ker = an.ker.map((v) => v.map((x) => F.toNumber(x)));
         if (ker.length === 1) scene.lineThrough([0, 0, 0], ker[0], 'ker', { group, length: 9 });
-        else if (ker.length === 2) scene.planeSpan([0, 0, 0], L.normalize(ker[0]), orthoTo(ker[0], ker[1]), 'ker', { size: 4, opacity: 0.18, group });
+        else if (ker.length === 2) scene.planeSpan([0, 0, 0], L.normalize(ker[0]), L.orthoTo(ker[0], ker[1]), 'ker', { size: 4, opacity: 0.18, group });
         const img = an.img.map((v) => v.map((x) => F.toNumber(x)));
         if (img.length === 1) scene.lineThrough([0, 0, 0], img[0], 'img', { group, length: 9 });
-        else if (img.length === 2) scene.planeSpan([0, 0, 0], L.normalize(img[0]), orthoTo(img[0], img[1]), 'img', { size: 4, opacity: 0.16, grid: 1, group });
+        else if (img.length === 2) scene.planeSpan([0, 0, 0], L.normalize(img[0]), L.orthoTo(img[0], img[1]), 'img', { size: 4, opacity: 0.16, grid: 1, group });
         if (an.rank === 0) scene.point([0, 0, 0], 'img', { r: 0.14, group });
       }
     }
@@ -454,7 +454,6 @@ createLab({
 // Scene helpers
 // ---------------------------------------------------------------------------
 
-
 function boxMesh(scene, center, size, color) {
   const geo = new THREE.BoxGeometry(size, size, size);
   geo.translate(...center);
@@ -481,11 +480,6 @@ function pointCloud(scene) {
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   return new THREE.Points(geo, new THREE.PointsMaterial({ size: 5, sizeAttenuation: false, vertexColors: true }));
-}
-
-function orthoTo(a, b) {
-  const u = L.normalize(a);
-  return L.normalize(L.subVec(b, L.scaleVec(u, L.dotFloat(b, u))));
 }
 
 function disposeTree(obj) {

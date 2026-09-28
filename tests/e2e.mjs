@@ -40,6 +40,8 @@ async function check(name, fn) {
 
 async function openPage(path, { lang = 'es', scheme = 'dark', width = 1300, height = 900 } = {}) {
   const context = await browser.newContext({ viewport: { width, height }, colorScheme: scheme, locale: lang === 'es' ? 'es-ES' : 'en-US' });
+  // The app is dark by default; the light theme is a stored preference.
+  if (scheme === 'light') await context.addInitScript(() => { try { localStorage.setItem('linear-lab-theme', 'light'); } catch { /* ignore */ } });
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
@@ -214,6 +216,7 @@ await check('animation stage labels show one active stage', async () => {
     const stages = page.locator('.anim__stages:visible .anim__stage');
     assert.equal(await stages.count(), count, `${path}: number of stages`);
     assert.equal(await page.locator('.anim__stages:visible .anim__stage[data-active="true"]').count(), 1, `${path}: one active stage`);
+    assert.ok(!(await page.locator('.anim__stages:visible').innerText()).includes('.;'), `${path}: TeX spacing is not printed literally`);
     assert.deepEqual(errors, []);
     await context.close();
   }
@@ -336,6 +339,72 @@ await check('eigen: continuous flow classifies a stable spiral', async () => {
 await check('non-square: the four subspaces are orthogonal pairs', async () => {
   const { page, context, errors } = await openPage('matrices_no_cuadradas.html?dims=2x3&show=img.ker.row.lnull');
   assert.match(await page.locator('.panel').innerText(), /Comprobado con aritmética exacta/);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+await check('app shell: sidebar lists every app, collapses and remembers it', async () => {
+  const { page, context, errors } = await openPage('determinantes.html');
+  assert.equal(await page.locator('.sidebar .navitem').count(), MODULES.length);
+  assert.equal(await page.locator('.navitem[aria-current="page"]').getAttribute('href'), 'determinantes.html');
+  await page.keyboard.press('b');
+  assert.ok(await page.evaluate(() => document.body.classList.contains('sidebar-collapsed')));
+  await page.reload({ waitUntil: 'networkidle' });
+  assert.ok(await page.evaluate(() => document.body.classList.contains('sidebar-collapsed')), 'remembered after reload');
+  await page.locator('.sidebar__collapse').click();
+  assert.ok(!(await page.evaluate(() => document.body.classList.contains('sidebar-collapsed'))));
+  // The page itself never scrolls on desktop: stage and inspector fill the window.
+  assert.ok(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 1));
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+await check('inspector tabs: theory and challenges live next to the controls', async () => {
+  const { page, context, errors } = await openPage('formas_cuadraticas.html', { lang: 'en' });
+  await page.getByRole('tab', { name: /Theory/ }).click();
+  assert.match(await page.locator('#pane-theory').innerText(), /Spectral theorem/);
+  assert.ok(await page.locator('#pane-controls').isHidden());
+  await page.getByRole('tab', { name: /Challenges/ }).click();
+  await page.locator('.challenge').first().getByRole('button').click();
+  assert.ok(await page.locator('#pane-controls').isVisible(), 'activating a challenge shows the controls');
+  assert.ok(await page.locator('.active-challenge').isVisible());
+  await page.locator('.card__toggle').first().click();
+  assert.ok(await page.locator('.card').first().evaluate((e) => e.classList.contains('card--collapsed')));
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+await check('launcher: one tile per app and a way back to the last app', async () => {
+  const { page, context, errors } = await openPage('index.html');
+  assert.equal(await page.locator('.tile').count(), MODULES.length);
+  assert.equal(await page.locator('.chapter-block').count(), 5);
+  await page.locator('.tile', { hasText: 'Ortogonalidad' }).click();
+  await page.waitForLoadState('networkidle');
+  assert.match(page.url(), /ortogonalidad\.html/);
+  await page.locator('.sidebar__brand').click();
+  await page.waitForLoadState('networkidle');
+  assert.match(await page.locator('.launcher__resume').innerText(), /Ortogonalidad/);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+await check('dark is the default theme even when the system prefers light', async () => {
+  const context = await browser.newContext({ viewport: { width: 1200, height: 800 }, colorScheme: 'light' });
+  const page = await context.newPage();
+  await page.goto(`${BASE}transformaciones_2D.html`, { waitUntil: 'networkidle' });
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'dark');
+  await context.close();
+});
+
+await check('mobile: the menu button opens the app list as a drawer', async () => {
+  const { page, context, errors } = await openPage('svd.html', { width: 390, height: 844 });
+  assert.ok(!(await page.locator('.sidebar').evaluate((e) => e.getBoundingClientRect().right > 0)), 'hidden at first');
+  await page.getByRole('button', { name: 'Menú' }).click();
+  await page.waitForTimeout(300);
+  assert.ok(await page.locator('.sidebar').evaluate((e) => e.getBoundingClientRect().left >= 0));
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+  assert.ok(!(await page.evaluate(() => document.body.classList.contains('sidebar-open'))));
   assert.deepEqual(errors, []);
   await context.close();
 });

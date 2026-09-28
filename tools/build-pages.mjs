@@ -28,14 +28,14 @@ const LEADS = {
   nl: 'Transformaciones no lineales del plano, pruebas de linealidad y la matriz jacobiana como aproximación lineal local.',
 };
 
-export const EARLY_SCRIPT = `<script>(function(){var d=document.documentElement,l,t;try{l=new URLSearchParams(location.search).get('lang')||localStorage.getItem('linear-lab-language');t=localStorage.getItem('linear-lab-theme');}catch(e){}if(l!=='es'&&l!=='en')l=/^es/i.test(navigator.language||'')?'es':'en';d.lang=l;if(t!=='dark'&&t!=='light')t=window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';d.setAttribute('data-theme',t);})();</script>`;
+export const EARLY_SCRIPT = `<script>(function(){var d=document.documentElement,l,t;try{l=new URLSearchParams(location.search).get('lang')||localStorage.getItem('linear-lab-language');t=localStorage.getItem('linear-lab-theme');}catch(e){}if(l!=='es'&&l!=='en')l=/^es/i.test(navigator.language||'')?'es':'en';d.lang=l;if(t==='auto')t=window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';else if(t!=='light')t='dark';d.setAttribute('data-theme',t);})();</script>`;
 
 export function head({ title, description, path, extra = '' }) {
   return `<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${title}</title>
 <meta name="description" content="${description}">
-<meta name="theme-color" content="#0c0f0d">
+<meta name="theme-color" content="#181a1f">
 <link rel="icon" href="assets/img/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="assets/img/icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
@@ -82,65 +82,20 @@ ${NOSCRIPT}
 // Home page
 // ---------------------------------------------------------------------------
 
-const T = (es, en, tag = 'span', attrs = '') => `<${tag} data-es="${es.replace(/"/g, '&quot;')}" data-en="${en.replace(/"/g, '&quot;')}"${attrs}>${es}</${tag}>`;
-
-const TOTAL = MODULES.reduce((s, m) => s + m.challenges, 0);
-const WORDS = { es: ['Diez', 'Once', 'Doce', 'Trece', 'Catorce', 'Quince', 'Dieciséis', 'Diecisiete', 'Dieciocho'], en: ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen'] };
-const COUNT_WORD = { es: WORDS.es[MODULES.length - 10] || String(MODULES.length), en: WORDS.en[MODULES.length - 10] || String(MODULES.length) };
-const FEATURES = [
-  ['ℚ', 'Exacto', 'Exact', 'Escribe 1/3, √2 o cos(π/6). Determinantes, inversas, valores propios y proyecciones se calculan con fracciones y radicales exactos.', 'Type 1/3, √2 or cos(π/6). Determinants, inverses, eigenvalues and projections are computed with exact fractions and radicals.'],
-  ['∴', 'Explicado', 'Explained', 'Cada módulo explica qué estás viendo y trae una sección «Formalmente» con definiciones y teoremas enunciados con precisión.', 'Every module explains what you are seeing and has a “Formally” section with precisely stated definitions and theorems.'],
-  ['✓', 'Retos', 'Challenges', `${TOTAL} ejercicios interactivos con verificación automática y pistas. Tu progreso se guarda en este navegador.`, `${TOTAL} interactive exercises with automatic checking and hints. Your progress is saved in this browser.`],
-  ['↗', 'Compartible', 'Shareable', 'Cada configuración vive en la URL: compártela, proyéctala en modo presentación o descárgala como PNG. Funciona sin conexión.', 'Every configuration lives in the URL: share it, project it in presentation mode or download it as a PNG. Works offline.'],
-];
-
 const home = `<!doctype html>
 <html lang="es" data-loading>
 <head>
-${head({ title: 'Laboratorio de Álgebra Lineal · Las matrices también se mueven', description: 'Laboratorio interactivo y bilingüe para aprender álgebra lineal de forma visual y exacta: combinaciones lineales, transformaciones, determinantes, sistemas, cambio de base, valores propios, ortogonalidad, formas cuadráticas, SVD y espacios de polinomios.', path: '' })}
+${head({ title: 'Laboratorio de Álgebra Lineal', description: 'Laboratorio interactivo y bilingüe de álgebra lineal: combinaciones lineales, transformaciones, determinantes, sistemas, cambio de base, valores propios, ortogonalidad, formas cuadráticas, SVD y espacios de polinomios, con cálculo exacto.', path: '' })}
 <script type="module" src="assets/js/home.js"></script>
 </head>
-<body class="home">
-<a class="skip-link" href="#modulos">${T('Saltar a los módulos', 'Skip to the modules')}</a>
-<main>
-  <section class="home-hero">
-    <div>
-      <p class="kicker">${T('Álgebra lineal, a la vista', 'Linear algebra, in plain sight')}</p>
-      <h1 data-es="Las matrices también se &lt;em&gt;mueven.&lt;/em&gt;" data-en="Matrices move, &lt;em&gt;too.&lt;/em&gt;" data-html>Las matrices también se <em>mueven.</em></h1>
-    </div>
-    <div class="hero-copy">
-      ${T(`Arrastra un vector, cambia una base y observa cómo responde el espacio. ${COUNT_WORD.es} laboratorios que convierten operaciones abstractas en intuición visible, con cálculos exactos y explicaciones rigurosas.`, `Drag a vector, change a basis and watch space respond. ${COUNT_WORD.en} labs that turn abstract operations into visible intuition, with exact computations and rigorous explanations.`, 'p')}
-      <div class="hero-actions">
-        <a class="btn btn--primary" href="${MODULES[0].file}">${T('Empezar por el módulo 01', 'Start with module 01')}</a>
-        <a class="btn" href="#modulos">${T('Ver todos los módulos', 'See all modules')}</a>
-      </div>
-      <p class="credit">${T('Proyecto independiente inspirado en las matemáticas visuales de', 'Independent project inspired by the visual mathematics of')} <a href="https://www.3blue1brown.com/" target="_blank" rel="noopener noreferrer">3Blue1Brown ↗</a></p>
-    </div>
-  </section>
-  <div class="hero-art" id="hero-art"><div class="hero-art__caption" id="hero-caption"></div></div>
-
-  <section class="features" aria-label="features">
-    <div class="features__inner">
-${FEATURES.map(([sym, es, en, des, den]) => `      <div class="feature"><span aria-hidden="true">${sym}</span>${T(es, en, 'h3')}${T(des, den, 'p')}</div>`).join('\n')}
-    </div>
-  </section>
-
-  <section class="modules" id="modulos">
-    <div class="section-head">
-      ${T(`${COUNT_WORD.es} formas de ver lo invisible.`, `${COUNT_WORD.en} ways to see the invisible.`, 'h2')}
-      ${T('Un recorrido sugerido: de las combinaciones de flechas a las transformaciones, de los sistemas a los subespacios, del cambio de base al espectro, de la geometría euclídea a los espacios de funciones y a lo que ya no es lineal. Cada módulo es independiente.', 'A suggested path: from combining arrows to transformations, from systems to subspaces, from change of basis to the spectrum, from Euclidean geometry to function spaces and to what is no longer linear. Every module stands on its own.', 'p')}
-    </div>
-    <div id="module-list"></div>
-    <noscript><ul>${MODULES.map((m) => `<li><a href="${m.file}">${m.title.es}</a></li>`).join('')}</ul></noscript>
-  </section>
-
-  <section class="learning-note">
-    <div class="learning-note__inner">
-      ${T('No memorices primero. Manipula, observa y luego nombra.', 'Do not memorize first. Manipulate, observe, then name.', 'h2')}
-      ${T('Cada control modifica una representación matemática y cada gráfico convierte el resultado en algo que puedes inspeccionar. Cuando la intuición esté lista, la pestaña «Formalmente» te espera con los enunciados precisos.', 'Every control changes a mathematical representation and every picture turns the result into something you can inspect. When the intuition is ready, the “Formally” tab is waiting with the precise statements.', 'p')}
-    </div>
-  </section>
+<body>
+<noscript>
+<main style="padding:16px;font-family:sans-serif">
+<h1>Laboratorio de Álgebra Lineal</h1>
+<p>Este laboratorio necesita JavaScript. · This laboratory needs JavaScript.</p>
+<ul>${MODULES.map((m) => `<li><a href="${m.file}">${m.title.es}</a></li>`).join('')}</ul>
 </main>
+</noscript>
 </body>
 </html>
 `;

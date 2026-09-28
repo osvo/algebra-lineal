@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Laboratorio de Álgebra Lineal · Las matrices también se mueven</title>
-<meta name="description" content="Laboratorio interactivo y bilingüe para aprender álgebra lineal de forma visual y exacta: combinaciones lineales, transformaciones, determinantes, sistemas, cambio de base, valores propios, ortogonalidad, formas cuadráticas, SVD y espacios de polinomios.">
-<meta name="theme-color" content="#0c0f0d">
+<title>Laboratorio de Álgebra Lineal</title>
+<meta name="description" content="Laboratorio interactivo y bilingüe de álgebra lineal: combinaciones lineales, transformaciones, determinantes, sistemas, cambio de base, valores propios, ortogonalidad, formas cuadráticas, SVD y espacios de polinomios, con cálculo exacto.">
+<meta name="theme-color" content="#181a1f">
 <link rel="icon" href="assets/img/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="assets/img/icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
@@ -14,62 +14,26 @@
 <link rel="alternate" hreflang="en" href="https://osvo.com.co/algebra-lineal/?lang=en">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Laboratorio de Álgebra Lineal">
-<meta property="og:title" content="Laboratorio de Álgebra Lineal · Las matrices también se mueven">
-<meta property="og:description" content="Laboratorio interactivo y bilingüe para aprender álgebra lineal de forma visual y exacta: combinaciones lineales, transformaciones, determinantes, sistemas, cambio de base, valores propios, ortogonalidad, formas cuadráticas, SVD y espacios de polinomios.">
+<meta property="og:title" content="Laboratorio de Álgebra Lineal">
+<meta property="og:description" content="Laboratorio interactivo y bilingüe de álgebra lineal: combinaciones lineales, transformaciones, determinantes, sistemas, cambio de base, valores propios, ortogonalidad, formas cuadráticas, SVD y espacios de polinomios, con cálculo exacto.">
 <meta property="og:url" content="https://osvo.com.co/algebra-lineal/">
 <meta property="og:image" content="https://osvo.com.co/algebra-lineal/og.png">
 <meta property="og:locale" content="es_CO">
 <meta property="og:locale:alternate" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
-<script>(function(){var d=document.documentElement,l,t;try{l=new URLSearchParams(location.search).get('lang')||localStorage.getItem('linear-lab-language');t=localStorage.getItem('linear-lab-theme');}catch(e){}if(l!=='es'&&l!=='en')l=/^es/i.test(navigator.language||'')?'es':'en';d.lang=l;if(t!=='dark'&&t!=='light')t=window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';d.setAttribute('data-theme',t);})();</script>
+<script>(function(){var d=document.documentElement,l,t;try{l=new URLSearchParams(location.search).get('lang')||localStorage.getItem('linear-lab-language');t=localStorage.getItem('linear-lab-theme');}catch(e){}if(l!=='es'&&l!=='en')l=/^es/i.test(navigator.language||'')?'es':'en';d.lang=l;if(t==='auto')t=window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';else if(t!=='light')t='dark';d.setAttribute('data-theme',t);})();</script>
 <link rel="preload" href="vendor/fonts/manrope-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/css/lab.css">
 <link rel="stylesheet" href="vendor/katex/katex.min.css">
 <script type="module" src="assets/js/home.js"></script>
 </head>
-<body class="home">
-<a class="skip-link" href="#modulos"><span data-es="Saltar a los módulos" data-en="Skip to the modules">Saltar a los módulos</span></a>
-<main>
-  <section class="home-hero">
-    <div>
-      <p class="kicker"><span data-es="Álgebra lineal, a la vista" data-en="Linear algebra, in plain sight">Álgebra lineal, a la vista</span></p>
-      <h1 data-es="Las matrices también se &lt;em&gt;mueven.&lt;/em&gt;" data-en="Matrices move, &lt;em&gt;too.&lt;/em&gt;" data-html>Las matrices también se <em>mueven.</em></h1>
-    </div>
-    <div class="hero-copy">
-      <p data-es="Arrastra un vector, cambia una base y observa cómo responde el espacio. Catorce laboratorios que convierten operaciones abstractas en intuición visible, con cálculos exactos y explicaciones rigurosas." data-en="Drag a vector, change a basis and watch space respond. Fourteen labs that turn abstract operations into visible intuition, with exact computations and rigorous explanations.">Arrastra un vector, cambia una base y observa cómo responde el espacio. Catorce laboratorios que convierten operaciones abstractas en intuición visible, con cálculos exactos y explicaciones rigurosas.</p>
-      <div class="hero-actions">
-        <a class="btn btn--primary" href="combinaciones_lineales.html"><span data-es="Empezar por el módulo 01" data-en="Start with module 01">Empezar por el módulo 01</span></a>
-        <a class="btn" href="#modulos"><span data-es="Ver todos los módulos" data-en="See all modules">Ver todos los módulos</span></a>
-      </div>
-      <p class="credit"><span data-es="Proyecto independiente inspirado en las matemáticas visuales de" data-en="Independent project inspired by the visual mathematics of">Proyecto independiente inspirado en las matemáticas visuales de</span> <a href="https://www.3blue1brown.com/" target="_blank" rel="noopener noreferrer">3Blue1Brown ↗</a></p>
-    </div>
-  </section>
-  <div class="hero-art" id="hero-art"><div class="hero-art__caption" id="hero-caption"></div></div>
-
-  <section class="features" aria-label="features">
-    <div class="features__inner">
-      <div class="feature"><span aria-hidden="true">ℚ</span><h3 data-es="Exacto" data-en="Exact">Exacto</h3><p data-es="Escribe 1/3, √2 o cos(π/6). Determinantes, inversas, valores propios y proyecciones se calculan con fracciones y radicales exactos." data-en="Type 1/3, √2 or cos(π/6). Determinants, inverses, eigenvalues and projections are computed with exact fractions and radicals.">Escribe 1/3, √2 o cos(π/6). Determinantes, inversas, valores propios y proyecciones se calculan con fracciones y radicales exactos.</p></div>
-      <div class="feature"><span aria-hidden="true">∴</span><h3 data-es="Explicado" data-en="Explained">Explicado</h3><p data-es="Cada módulo explica qué estás viendo y trae una sección «Formalmente» con definiciones y teoremas enunciados con precisión." data-en="Every module explains what you are seeing and has a “Formally” section with precisely stated definitions and theorems.">Cada módulo explica qué estás viendo y trae una sección «Formalmente» con definiciones y teoremas enunciados con precisión.</p></div>
-      <div class="feature"><span aria-hidden="true">✓</span><h3 data-es="Retos" data-en="Challenges">Retos</h3><p data-es="58 ejercicios interactivos con verificación automática y pistas. Tu progreso se guarda en este navegador." data-en="58 interactive exercises with automatic checking and hints. Your progress is saved in this browser.">58 ejercicios interactivos con verificación automática y pistas. Tu progreso se guarda en este navegador.</p></div>
-      <div class="feature"><span aria-hidden="true">↗</span><h3 data-es="Compartible" data-en="Shareable">Compartible</h3><p data-es="Cada configuración vive en la URL: compártela, proyéctala en modo presentación o descárgala como PNG. Funciona sin conexión." data-en="Every configuration lives in the URL: share it, project it in presentation mode or download it as a PNG. Works offline.">Cada configuración vive en la URL: compártela, proyéctala en modo presentación o descárgala como PNG. Funciona sin conexión.</p></div>
-    </div>
-  </section>
-
-  <section class="modules" id="modulos">
-    <div class="section-head">
-      <h2 data-es="Catorce formas de ver lo invisible." data-en="Fourteen ways to see the invisible.">Catorce formas de ver lo invisible.</h2>
-      <p data-es="Un recorrido sugerido: de las combinaciones de flechas a las transformaciones, de los sistemas a los subespacios, del cambio de base al espectro, de la geometría euclídea a los espacios de funciones y a lo que ya no es lineal. Cada módulo es independiente." data-en="A suggested path: from combining arrows to transformations, from systems to subspaces, from change of basis to the spectrum, from Euclidean geometry to function spaces and to what is no longer linear. Every module stands on its own.">Un recorrido sugerido: de las combinaciones de flechas a las transformaciones, de los sistemas a los subespacios, del cambio de base al espectro, de la geometría euclídea a los espacios de funciones y a lo que ya no es lineal. Cada módulo es independiente.</p>
-    </div>
-    <div id="module-list"></div>
-    <noscript><ul><li><a href="combinaciones_lineales.html">Combinaciones lineales</a></li><li><a href="transformaciones_2D.html">Transformaciones 2D</a></li><li><a href="composiciones.html">Composición</a></li><li><a href="transformaciones_3D.html">Transformaciones 3D</a></li><li><a href="determinantes.html">Determinantes</a></li><li><a href="sistemas_lineales.html">Sistemas Ax = b</a></li><li><a href="matrices_no_cuadradas.html">Matrices no cuadradas</a></li><li><a href="cambio_de_base.html">Cambio de base</a></li><li><a href="valores_propios.html">Valores propios y dinámica</a></li><li><a href="ortogonalidad.html">Ortogonalidad</a></li><li><a href="formas_cuadraticas.html">Formas cuadráticas</a></li><li><a href="svd.html">Descomposición en valores singulares</a></li><li><a href="polinomios.html">Espacios de polinomios</a></li><li><a href="transformaciones_no_lineales.html">Transformaciones no lineales</a></li></ul></noscript>
-  </section>
-
-  <section class="learning-note">
-    <div class="learning-note__inner">
-      <h2 data-es="No memorices primero. Manipula, observa y luego nombra." data-en="Do not memorize first. Manipulate, observe, then name.">No memorices primero. Manipula, observa y luego nombra.</h2>
-      <p data-es="Cada control modifica una representación matemática y cada gráfico convierte el resultado en algo que puedes inspeccionar. Cuando la intuición esté lista, la pestaña «Formalmente» te espera con los enunciados precisos." data-en="Every control changes a mathematical representation and every picture turns the result into something you can inspect. When the intuition is ready, the “Formally” tab is waiting with the precise statements.">Cada control modifica una representación matemática y cada gráfico convierte el resultado en algo que puedes inspeccionar. Cuando la intuición esté lista, la pestaña «Formalmente» te espera con los enunciados precisos.</p>
-    </div>
-  </section>
+<body>
+<noscript>
+<main style="padding:16px;font-family:sans-serif">
+<h1>Laboratorio de Álgebra Lineal</h1>
+<p>Este laboratorio necesita JavaScript. · This laboratory needs JavaScript.</p>
+<ul><li><a href="combinaciones_lineales.html">Combinaciones lineales</a></li><li><a href="transformaciones_2D.html">Transformaciones 2D</a></li><li><a href="composiciones.html">Composición</a></li><li><a href="transformaciones_3D.html">Transformaciones 3D</a></li><li><a href="determinantes.html">Determinantes</a></li><li><a href="sistemas_lineales.html">Sistemas Ax = b</a></li><li><a href="matrices_no_cuadradas.html">Matrices no cuadradas</a></li><li><a href="cambio_de_base.html">Cambio de base</a></li><li><a href="valores_propios.html">Valores propios y dinámica</a></li><li><a href="ortogonalidad.html">Ortogonalidad</a></li><li><a href="formas_cuadraticas.html">Formas cuadráticas</a></li><li><a href="svd.html">Descomposición en valores singulares</a></li><li><a href="polinomios.html">Espacios de polinomios</a></li><li><a href="transformaciones_no_lineales.html">Transformaciones no lineales</a></li></ul>
 </main>
+</noscript>
 </body>
 </html>

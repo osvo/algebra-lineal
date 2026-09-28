@@ -7,7 +7,8 @@ const KEY = 'linear-lab-theme';
 const listeners = new Set();
 const media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
 
-let pref = ['auto', 'dark', 'light'].includes(storage.get(KEY)) ? storage.get(KEY) : 'auto';
+// The app is designed dark first; 'auto' remains available from the theme button.
+let pref = ['auto', 'dark', 'light'].includes(storage.get(KEY)) ? storage.get(KEY) : 'dark';
 
 export const getThemePref = () => pref;
 export const getTheme = () => (pref === 'auto' ? (media && media.matches ? 'light' : 'dark') : pref);
@@ -15,7 +16,7 @@ export const getTheme = () => (pref === 'auto' ? (media && media.matches ? 'ligh
 function apply() {
   document.documentElement.dataset.theme = getTheme();
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', getTheme() === 'light' ? '#f6f5ef' : '#0c0f0d');
+  if (meta) meta.setAttribute('content', getTheme() === 'light' ? '#f3f3f3' : '#181a1f');
   for (const fn of listeners) fn(getTheme());
 }
 
@@ -46,7 +47,7 @@ export function themeButton() {
     setAttr(btn, 'title', LABELS[pref]);
   };
   btn.addEventListener('click', () => {
-    const order = ['auto', 'dark', 'light'];
+    const order = ['dark', 'light', 'auto'];
     setThemePref(order[(order.indexOf(pref) + 1) % order.length]);
     render();
   });

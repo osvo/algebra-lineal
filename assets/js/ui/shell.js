@@ -1,24 +1,26 @@
-// Page shell shared by every module: navigation, header, stage + panel layout,
-// learning tabs (explanation, formal statements, challenges), pager and footer.
+// Application shell shared by every app: sidebar with all the apps, toolbar,
+// full-height stage, inspector (controls, theory, challenges) and status bar.
 
-import { h, icon, toast, copyText, downloadBlob, storage } from './dom.js';
+import { h, icon, toast, copyText, downloadBlob, storage, clamp } from './dom.js';
 import { tr, trf, setText, setAttr, onLangChange, languageSwitch, getLang } from './i18n.js';
 import { themeButton } from './theme.js';
 import { richHTML } from './tex.js';
 import { MODULES, CHAPTERS, moduleNumber, chapterOf } from '../modules/registry.js';
 import { createStore } from './store.js';
 import { registerServiceWorker } from './pwa.js';
+import { moduleIcon } from './moduleIcons.js';
 
 const T = {
-  modules: { es: 'Módulos', en: 'Modules' },
-  home: { es: 'Inicio', en: 'Home' },
-  module: { es: 'Módulo', en: 'Module' },
+  apps: { es: 'Aplicativos', en: 'Apps' },
+  menu: { es: 'Menú', en: 'Menu' },
+  allApps: { es: 'Todos los aplicativos', en: 'All apps' },
+  collapse: { es: 'Plegar o desplegar la barra lateral (B)', en: 'Collapse or expand the sidebar (B)' },
   share: { es: 'Compartir', en: 'Share' },
   shareTitle: { es: 'Copiar un enlace a esta configuración exacta', en: 'Copy a link to this exact configuration' },
   png: { es: 'PNG', en: 'PNG' },
-  pngTitle: { es: 'Descargar la vista como imagen', en: 'Download the view as an image' },
+  pngTitle: { es: 'Descargar la vista como imagen PNG', en: 'Download the view as a PNG image' },
   present: { es: 'Presentar', en: 'Present' },
-  presentTitle: { es: 'Modo presentación (tecla P)', en: 'Presentation mode (P key)' },
+  presentTitle: { es: 'Modo presentación (P)', en: 'Presentation mode (P)' },
   exitPresent: { es: 'Salir', en: 'Exit' },
   togglePanel: { es: 'Panel', en: 'Panel' },
   reset: { es: 'Restablecer', en: 'Reset' },
@@ -26,11 +28,12 @@ const T = {
   copied: { es: 'Enlace copiado: reproduce exactamente esta configuración', en: 'Link copied: it reproduces this exact configuration' },
   copyFail: { es: 'No se pudo copiar; el enlace está en la barra de direcciones', en: 'Could not copy; the link is in the address bar' },
   resetDone: { es: 'Configuración restablecida', en: 'Configuration reset' },
-  tabExplain: { es: 'Explicación', en: 'Explanation' },
-  tabFormal: { es: 'Formalmente', en: 'Formally' },
+  tabControls: { es: 'Controles', en: 'Controls' },
+  tabTheory: { es: 'Teoría', en: 'Theory' },
   tabChallenges: { es: 'Retos', en: 'Challenges' },
   whatYouSee: { es: 'Qué estás viendo', en: 'What you are seeing' },
   tryThis: { es: 'Experimenta', en: 'Try this' },
+  formally: { es: 'Formalmente', en: 'Formally' },
   start: { es: 'Intentar', en: 'Try it' },
   active: { es: 'En curso…', en: 'In progress…' },
   solved: { es: 'Resuelto', en: 'Solved' },
@@ -40,14 +43,13 @@ const T = {
   abandon: { es: 'Abandonar', en: 'Leave' },
   solvedToast: { es: '¡Reto resuelto! ', en: 'Challenge solved! ' },
   progress: { es: '{done} de {total} retos resueltos', en: '{done} of {total} challenges solved' },
-  prev: { es: 'Anterior', en: 'Previous' },
-  next: { es: 'Siguiente', en: 'Next' },
-  footerBy: { es: 'Proyecto independiente de Juan Camilo Osorio Oviedo', en: 'Independent project by Juan Camilo Osorio Oviedo' },
-  footerInspired: { es: 'Inspirado en las matemáticas visuales de 3Blue1Brown ↗', en: 'Inspired by the visual mathematics of 3Blue1Brown ↗' },
-  code: { es: 'Código ↗', en: 'Code ↗' },
-  skip: { es: 'Saltar al laboratorio', en: 'Skip to the lab' },
+  code: { es: 'Código fuente', en: 'Source code' },
+  credit: { es: 'Juan Camilo Osorio Oviedo · inspirado en 3Blue1Brown', en: 'Juan Camilo Osorio Oviedo · inspired by 3Blue1Brown' },
+  skip: { es: 'Saltar al aplicativo', en: 'Skip to the app' },
   siteName: { es: 'Laboratorio de Álgebra Lineal', en: 'Linear Algebra Laboratory' },
-  brand: { es: 'Laboratorio lineal', en: 'Linear algebra lab' },
+  brand: { es: 'Álgebra lineal', en: 'Linear algebra' },
+  shortcuts: { es: 'P presentar · Espacio animar · B barra lateral', en: 'P present · Space animate · B sidebar' },
+  resize: { es: 'Arrastra para cambiar el ancho del panel', en: 'Drag to resize the panel' },
   kinds: {
     definition: { es: 'Definición', en: 'Definition' },
     theorem: { es: 'Teorema', en: 'Theorem' },
@@ -60,66 +62,77 @@ const T = {
 };
 
 export const CHALLENGE_KEY = 'linear-lab-challenges';
+export const LAST_KEY = 'linear-lab-last';
+const SIDEBAR_KEY = 'linear-lab-sidebar';
+const INSPECTOR_KEY = 'linear-lab-inspector-width';
 
 export function solvedChallenges() { return storage.getJSON(CHALLENGE_KEY, {}); }
 
 // ---------------------------------------------------------------------------
-// Navigation (shared with the home page)
+// Sidebar: every app, grouped by chapter
 // ---------------------------------------------------------------------------
 
-export function siteNav({ current = null, subtitle = null } = {}) {
-  const small = h('small');
-  if (subtitle) setText(small, subtitle); else setText(small, { es: 'Álgebra en movimiento', en: 'Algebra in motion' });
-  const brandLabel = h('span');
+function buildSidebar(current) {
+  const brandLabel = h('span', { class: 'sidebar__brand-label' });
   setText(brandLabel, T.brand);
-  const brand = h('a', { class: 'brand', href: 'index.html' },
-    h('span', { class: 'brand__mark', 'aria-hidden': 'true' }, 'λ'),
-    h('span', { class: 'brand__label' }, brandLabel, small));
-  setAttr(brand, 'aria-label', T.home);
+  const brand = h('a', { class: 'sidebar__brand', href: 'index.html' },
+    h('span', { class: 'brand-mark', 'aria-hidden': 'true' }, 'λ'), brandLabel);
+  setAttr(brand, 'title', T.allApps);
+  setAttr(brand, 'aria-label', T.allApps);
+  const collapse = h('button', { type: 'button', class: 'icon-btn icon-btn--ghost sidebar__collapse' }, icon('sidebar'));
+  setAttr(collapse, 'aria-label', T.collapse);
+  setAttr(collapse, 'title', T.collapse);
+  collapse.addEventListener('click', () => toggleSidebar());
 
-  const panel = h('div', { class: 'menu__panel', hidden: true, id: 'modules-menu' });
-  const renderMenu = () => {
-    panel.replaceChildren();
+  const nav = h('nav', { class: 'sidebar__nav' });
+  setAttr(nav, 'aria-label', T.apps);
+  const render = () => {
+    const solved = solvedChallenges();
+    nav.replaceChildren();
     for (const ch of CHAPTERS) {
-      panel.append(h('div', { class: 'menu__group' }, tr(ch.title)));
+      nav.append(h('div', { class: 'sidebar__group' }, tr(ch.title)));
       for (const m of MODULES.filter((x) => x.chapter === ch.id)) {
-        panel.append(h('a', { class: 'menu__item', href: m.file, 'aria-current': m.id === current ? 'page' : null },
-          h('span', null, moduleNumber(m.id)), h('span', null, tr(m.title))));
+        const done = (solved[m.id] || []).length;
+        const item = h('a', { class: 'navitem', href: m.file, 'aria-current': m.id === current ? 'page' : null, title: `${moduleNumber(m.id)} · ${tr(m.title)}` },
+          moduleIcon(m.id, { size: 20 }),
+          h('span', { class: 'navitem__num' }, moduleNumber(m.id)),
+          h('span', { class: 'navitem__label' }, tr(m.short || m.title)),
+          done >= m.challenges ? h('span', { class: 'navitem__done', title: tr(T.solved) }, '✓') : null);
+        nav.append(item);
       }
     }
   };
-  renderMenu();
-  onLangChange(renderMenu);
-  const menuBtn = h('button', { type: 'button', class: 'btn btn--ghost', 'aria-expanded': 'false', 'aria-controls': 'modules-menu' }, icon('menu'));
-  const menuLabel = h('span', { class: 'nav-link--text' });
-  setText(menuLabel, T.modules);
-  menuBtn.append(menuLabel);
-  const menu = h('div', { class: 'menu' }, menuBtn, panel);
-  const close = () => { panel.hidden = true; menuBtn.setAttribute('aria-expanded', 'false'); };
-  menuBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    panel.hidden = !panel.hidden;
-    menuBtn.setAttribute('aria-expanded', String(!panel.hidden));
-  });
-  document.addEventListener('click', (e) => { if (!menu.contains(e.target)) close(); });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !panel.hidden) { close(); menuBtn.focus(); } });
+  render();
+  onLangChange(render);
 
-  const code = h('a', { class: 'nav-link nav-link--text', href: 'https://github.com/osvo/algebra-lineal', rel: 'noopener' });
-  setText(code, T.code);
+  const code = h('a', { class: 'sidebar__link', href: 'https://github.com/osvo/algebra-lineal', rel: 'noopener' }, icon('code'));
+  const codeLabel = h('span'); setText(codeLabel, T.code); code.append(codeLabel);
+  const credit = h('p', { class: 'sidebar__credit' }); setText(credit, T.credit);
 
-  return h('nav', { class: 'site-nav' },
-    h('div', { class: 'site-nav__inner' }, brand,
-      h('div', { class: 'nav-actions' }, menu, code, themeButton(), languageSwitch())));
+  const el = h('aside', { class: 'sidebar' },
+    h('div', { class: 'sidebar__head' }, brand, collapse),
+    nav,
+    h('div', { class: 'sidebar__foot' }, code, credit));
+  setAttr(el, 'aria-label', T.apps);
+  return { el, render };
 }
 
-export function siteFooter() {
-  const by = h('span'); setText(by, T.footerBy);
-  const insp = h('a', { href: 'https://www.3blue1brown.com/', target: '_blank', rel: 'noopener noreferrer' }); setText(insp, T.footerInspired);
-  return h('footer', { class: 'site-footer' }, h('div', { class: 'site-footer__inner' }, by, insp));
+const isNarrow = () => window.matchMedia('(max-width: 899px)').matches;
+
+function toggleSidebar(force) {
+  const b = document.body;
+  if (isNarrow()) {
+    b.classList.toggle('sidebar-open', force);
+    return;
+  }
+  const collapsed = force === undefined ? !b.classList.contains('sidebar-collapsed') : !force;
+  b.classList.toggle('sidebar-collapsed', collapsed);
+  storage.set(SIDEBAR_KEY, collapsed ? 'collapsed' : 'expanded');
+  window.dispatchEvent(new Event('resize'));
 }
 
 // ---------------------------------------------------------------------------
-// Lab page
+// App page
 // ---------------------------------------------------------------------------
 
 /**
@@ -132,67 +145,86 @@ export function siteFooter() {
  */
 export function createLab(config) {
   const meta = MODULES.find((m) => m.id === config.id);
-  const idx = MODULES.indexOf(meta);
   const store = createStore(config.state);
-  const titleText = meta.title;
+  storage.set(LAST_KEY, meta.id);
+  const body = document.body;
+  body.classList.add('app');
+  body.dataset.module = meta.id;
+  if (storage.get(SIDEBAR_KEY) === 'collapsed') body.classList.add('sidebar-collapsed');
+  if (config.wide) body.classList.add('wide-inspector');
+  const savedWidth = +storage.get(INSPECTOR_KEY, 0);
+  if (savedWidth) body.style.setProperty('--insp-w', `${clamp(savedWidth, 300, 720)}px`);
 
-  // Header -------------------------------------------------------------------
-  const eyebrow = h('p', { class: 'eyebrow' });
-  const renderEyebrow = () => { eyebrow.textContent = `${tr(T.module)} ${moduleNumber(meta.id)} · ${tr(chapterOf(meta).title)}`; };
-  renderEyebrow(); onLangChange(renderEyebrow);
-  const h1 = h('h1'); setText(h1, titleText);
-  const lead = h('p', { class: 'lead' }); setText(lead, config.lead);
+  const sidebar = buildSidebar(meta.id);
+  const backdrop = h('div', { class: 'sidebar-backdrop' });
+  backdrop.addEventListener('click', () => toggleSidebar(false));
 
-  const mkAction = (iconName, label, title, onClick, kind = '') => {
-    const b = h('button', { type: 'button', class: `btn${kind ? ` btn--${kind}` : ''}` }, icon(iconName));
-    const s = h('span', { class: 'btn__label' }); setText(s, label); b.append(s);
-    setAttr(b, 'title', title);
+  // Toolbar -------------------------------------------------------------------
+  const menuBtn = h('button', { type: 'button', class: 'icon-btn icon-btn--ghost toolbar__menu' }, icon('menu'));
+  setAttr(menuBtn, 'aria-label', T.menu);
+  menuBtn.addEventListener('click', () => toggleSidebar(true));
+  const title = h('h1', { class: 'toolbar__title' });
+  const renderTitle = () => {
+    title.replaceChildren(h('span', { class: 'toolbar__num' }, moduleNumber(meta.id)), h('span', null, tr(meta.title)),
+      h('span', { class: 'toolbar__chapter' }, tr(chapterOf(meta).title)));
+  };
+  renderTitle(); onLangChange(renderTitle);
+
+  const mkAction = (iconName, label, tip, onClick) => {
+    const b = h('button', { type: 'button', class: 'icon-btn icon-btn--ghost' }, icon(iconName));
+    setAttr(b, 'aria-label', label);
+    setAttr(b, 'title', tip);
     b.addEventListener('click', onClick);
     return b;
   };
-  const actions = h('div', { class: 'lab-head__actions' },
-    mkAction('share', T.share, T.shareTitle, share),
-    mkAction('image', T.png, T.pngTitle, exportPng),
-    mkAction('present', T.present, T.presentTitle, () => setPresenting(true)),
-    mkAction('reset', T.reset, T.resetTitle, reset));
-  const head = h('header', { class: 'lab-head' }, h('div', null, eyebrow, h1, lead), actions);
+  const toolbar = h('header', { class: 'toolbar' },
+    menuBtn, title, h('div', { class: 'toolbar__spacer' }),
+    h('div', { class: 'toolbar__group' },
+      mkAction('share', T.share, T.shareTitle, share),
+      mkAction('image', T.png, T.pngTitle, exportPng),
+      mkAction('present', T.present, T.presentTitle, () => setPresenting(true)),
+      mkAction('reset', T.reset, T.resetTitle, reset)),
+    h('div', { class: 'toolbar__sep', 'aria-hidden': 'true' }),
+    h('div', { class: 'toolbar__group' }, themeButton(), languageSwitch()));
 
-  // Stage + panel --------------------------------------------------------------
+  // Stage ---------------------------------------------------------------------
   const views = h('div', { class: 'stage__views' });
   const bar = h('div', { class: 'stage__bar' });
-  const legend = h('div', { class: 'legend', 'aria-label': 'legend' });
-  const presentTools = h('div', { class: 'row', style: { position: 'absolute', top: '10px', right: '10px', zIndex: 8 } });
-  const exitBtn = mkAction('exit', T.exitPresent, T.exitPresent, () => setPresenting(false));
-  exitBtn.classList.add('present-exit');
-  const panelBtn = mkAction('panel', T.togglePanel, T.togglePanel, () => document.body.classList.toggle('panel-hidden'));
-  panelBtn.classList.add('present-exit');
-  presentTools.append(panelBtn, exitBtn);
+  const legend = h('div', { class: 'legend' });
+  setAttr(legend, 'aria-label', { es: 'Leyenda', en: 'Legend' });
+  const mkPresent = (iconName, label, onClick) => {
+    const b = h('button', { type: 'button', class: 'btn btn--sm present-exit' }, icon(iconName));
+    const s = h('span'); setText(s, label); b.append(s);
+    b.addEventListener('click', onClick);
+    return b;
+  };
+  const presentTools = h('div', { class: 'present-tools' },
+    mkPresent('panel', T.togglePanel, () => { body.classList.toggle('panel-hidden'); window.dispatchEvent(new Event('resize')); }),
+    mkPresent('exit', T.exitPresent, () => setPresenting(false)));
   const stage = h('section', { class: 'stage' }, views, presentTools, bar, legend);
   setAttr(stage, 'aria-label', { es: 'Visualización', en: 'Visualization' });
+  const workspace = h('main', { id: 'lab', class: 'workspace' }, toolbar, stage);
+
+  // Inspector -----------------------------------------------------------------
   const activeBanner = h('div', { class: 'active-challenge', hidden: true });
-  const panel = h('aside', { class: 'panel' }, activeBanner);
-  setAttr(panel, 'aria-label', { es: 'Controles y resultados', en: 'Controls and results' });
-  const main = h('main', { id: 'lab', class: `lab-main${config.wide ? ' lab-main--wide-panel' : ''}` }, stage, panel);
+  const panel = h('div', { class: 'panel' }, activeBanner);
+  const inspector = buildInspector(config, meta, panel);
+  const resizer = h('div', { class: 'inspector__resizer', role: 'separator', 'aria-orientation': 'vertical' });
+  setAttr(resizer, 'title', T.resize);
+  inspector.el.prepend(resizer);
+  bindResizer(resizer);
 
-  // Learning section -------------------------------------------------------------
-  const learn = buildLearn(config, meta);
-
-  // Pager ------------------------------------------------------------------------
-  const pager = h('nav', { class: 'pager' });
-  const renderPager = () => {
-    pager.replaceChildren();
-    const prev = MODULES[idx - 1], next = MODULES[idx + 1];
-    pager.append(prev
-      ? h('a', { href: prev.file }, h('small', null, `← ${tr(T.prev)} · ${moduleNumber(prev.id)}`), h('strong', null, tr(prev.title)))
-      : h('a', { href: 'index.html' }, h('small', null, `← ${tr(T.home)}`), h('strong', null, tr(T.siteName))));
-    pager.append(next
-      ? h('a', { href: next.file }, h('small', null, `${tr(T.next)} · ${moduleNumber(next.id)} →`), h('strong', null, tr(next.title)))
-      : h('a', { href: 'index.html#modulos' }, h('small', null, `${tr(T.modules)} →`), h('strong', null, tr(T.siteName))));
-  };
-  renderPager(); onLangChange(renderPager);
+  // Status bar ----------------------------------------------------------------
+  const statusProgress = h('span', { class: 'statusbar__item' });
+  const statusHint = h('span', { class: 'statusbar__item statusbar__hint' }); setText(statusHint, T.shortcuts);
+  const statusApp = h('span', { class: 'statusbar__item' });
+  const renderStatus = () => { statusApp.textContent = `${tr(T.siteName)} · ${moduleNumber(meta.id)} ${tr(meta.title)}`; };
+  renderStatus(); onLangChange(renderStatus);
+  const statusbar = h('footer', { class: 'statusbar' },
+    h('span', { class: 'statusbar__mode' }, 'λ'), statusApp, h('span', { class: 'toolbar__spacer' }), statusProgress, statusHint);
 
   const skip = h('a', { class: 'skip-link', href: '#lab' }); setText(skip, T.skip);
-  document.body.append(skip, siteNav({ current: meta.id, subtitle: titleText }), head, main, learn.el, pager, siteFooter());
+  body.append(skip, sidebar.el, backdrop, workspace, inspector.el, statusbar);
 
   const updateTitle = () => {
     document.title = `${tr(meta.title)} · ${tr(T.siteName)}`;
@@ -241,7 +273,10 @@ export function createLab(config) {
     challenges.check(derived);
   }
 
-  const challenges = setupChallenges(config, meta, store, learn, activeBanner, () => derived);
+  const challenges = setupChallenges(config, meta, store, inspector, activeBanner, () => derived, (done, total) => {
+    statusProgress.textContent = total ? `${tr(T.tabChallenges)} ${done}/${total}` : '';
+    sidebar.render();
+  });
   store.subscribe((state, changed) => renderNow(changed));
   onLangChange(() => renderNow(new Set(['__lang'])));
   renderNow(new Set(Object.keys(store.state).concat('__init')));
@@ -271,26 +306,30 @@ export function createLab(config) {
   }
 
   function setPresenting(on) {
-    document.body.classList.toggle('presenting', on);
-    if (!on) document.body.classList.remove('panel-hidden');
+    body.classList.toggle('presenting', on);
+    if (!on) body.classList.remove('panel-hidden');
     const el = document.documentElement;
     if (on && el.requestFullscreen && !document.fullscreenElement) el.requestFullscreen().catch(() => {});
     if (!on && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
     window.dispatchEvent(new Event('resize'));
   }
   document.addEventListener('fullscreenchange', () => {
-    if (!document.fullscreenElement && document.body.classList.contains('presenting')) setPresenting(false);
+    if (!document.fullscreenElement && body.classList.contains('presenting')) setPresenting(false);
   });
 
   document.addEventListener('keydown', (e) => {
     const tag = (e.target && e.target.tagName) || '';
     if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.key === 'Escape' && document.body.classList.contains('presenting')) { setPresenting(false); return; }
+    if (e.key === 'Escape') {
+      if (body.classList.contains('presenting')) { setPresenting(false); return; }
+      if (body.classList.contains('sidebar-open')) { toggleSidebar(false); return; }
+    }
     if (e.target && e.target.classList && e.target.classList.contains('view')) {
       // Canvas keys (arrows, +/−) are handled by the view itself.
       if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', '+', '-', '=', '0', '[', ']'].includes(e.key)) return;
     }
-    if (e.key === 'p' || e.key === 'P') { setPresenting(!document.body.classList.contains('presenting')); e.preventDefault(); return; }
+    if (e.key === 'p' || e.key === 'P') { setPresenting(!body.classList.contains('presenting')); e.preventDefault(); return; }
+    if (e.key === 'b' || e.key === 'B') { toggleSidebar(); e.preventDefault(); return; }
     if (e.key === ' ' && mod.togglePlay && tag !== 'BUTTON' && tag !== 'A') { mod.togglePlay(); e.preventDefault(); return; }
     const fn = shortcuts.get(e.key);
     if (fn) { fn(e); e.preventDefault(); }
@@ -301,23 +340,54 @@ export function createLab(config) {
   return { store, ctx, mod };
 }
 
+/** The inspector's left edge can be dragged to change its width (saved per browser). */
+function bindResizer(handle) {
+  let dragging = false;
+  handle.addEventListener('pointerdown', (e) => {
+    if (isNarrow()) return;
+    dragging = true;
+    handle.setPointerCapture(e.pointerId);
+    document.body.classList.add('resizing');
+  });
+  handle.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const w = clamp(window.innerWidth - e.clientX, 300, Math.min(720, window.innerWidth * 0.6));
+    document.body.style.setProperty('--insp-w', `${Math.round(w)}px`);
+  });
+  const end = () => {
+    if (!dragging) return;
+    dragging = false;
+    document.body.classList.remove('resizing');
+    const w = parseInt(getComputedStyle(document.body).getPropertyValue('--insp-w'), 10);
+    if (w) storage.set(INSPECTOR_KEY, String(w));
+    window.dispatchEvent(new Event('resize'));
+  };
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
+  handle.addEventListener('dblclick', () => {
+    document.body.style.removeProperty('--insp-w');
+    storage.set(INSPECTOR_KEY, '');
+    window.dispatchEvent(new Event('resize'));
+  });
+}
+
 // ---------------------------------------------------------------------------
-// Learning tabs
+// Inspector: Controls | Theory | Challenges
 // ---------------------------------------------------------------------------
 
-function buildLearn(config, meta) {
+function buildInspector(config, meta, controls) {
   const tabs = h('div', { class: 'tabs', role: 'tablist' });
-  const panels = h('div');
+  const panes = h('div', { class: 'inspector__panes' });
   const defs = [
-    { id: 'explain', label: T.tabExplain },
-    { id: 'formal', label: T.tabFormal },
+    { id: 'controls', label: T.tabControls },
+    { id: 'theory', label: T.tabTheory },
     { id: 'challenges', label: T.tabChallenges },
   ];
-  const buttons = {}, panes = {};
+  const buttons = {}, paneEls = {};
   for (const d of defs) {
     const b = h('button', { type: 'button', role: 'tab', id: `tab-${d.id}`, 'aria-controls': `pane-${d.id}` });
     const lbl = h('span'); setText(lbl, d.label); b.append(lbl);
-    if (d.id === 'challenges') { const count = h('span', { class: 'mono', style: { marginLeft: '8px', color: 'var(--faint)' } }); b.append(count); b.count = count; }
+    if (d.id === 'challenges') { const count = h('span', { class: 'tabs__count' }); b.append(count); b.count = count; }
     b.addEventListener('click', () => select(d.id));
     b.addEventListener('keydown', (e) => {
       const i = defs.findIndex((x) => x.id === d.id);
@@ -327,49 +397,53 @@ function buildLearn(config, meta) {
       }
     });
     tabs.append(b); buttons[d.id] = b;
-    const p = h('div', { class: 'tabpanel', role: 'tabpanel', id: `pane-${d.id}`, 'aria-labelledby': `tab-${d.id}` });
-    panels.append(p); panes[d.id] = p;
+    const p = d.id === 'controls' ? controls : h('div');
+    p.classList.add('tabpanel');
+    p.setAttribute('role', 'tabpanel');
+    p.id = `pane-${d.id}`;
+    p.setAttribute('aria-labelledby', `tab-${d.id}`);
+    panes.append(p); paneEls[d.id] = p;
   }
   function select(id) {
     for (const d of defs) {
       buttons[d.id].setAttribute('aria-selected', String(d.id === id));
       buttons[d.id].tabIndex = d.id === id ? 0 : -1;
-      panes[d.id].hidden = d.id !== id;
+      paneEls[d.id].hidden = d.id !== id;
     }
+    panes.scrollTop = 0;
   }
-  select('explain');
+  select('controls');
 
-  const render = () => {
+  const renderTheory = () => {
     const L = config.learn || {};
-    // Explanation
-    const what = h('div', { class: 'prose' });
-    what.innerHTML = `<h2>${tr(T.whatYouSee)}</h2>${richHTML(tr(L.what || ''))}`;
+    const out = [];
+    if (config.lead) out.push(h('p', { class: 'theory__lead' }, tr(config.lead)));
+    out.push(h('section', { class: 'theory__section' }, h('h2', { class: 'section-title' }, tr(T.whatYouSee)), h('div', { class: 'prose', html: richHTML(tr(L.what || '')) })));
     const prompts = h('ol', { class: 'prompts' });
     for (const p of tr(L.prompts || { es: [], en: [] })) prompts.append(h('li', null, h('div', { html: richHTML(p) })));
-    const aside = h('div', null, h('h2', { class: 'aside-title' }, tr(T.tryThis)), prompts);
-    panes.explain.replaceChildren(h('div', { class: 'learn-grid' }, what, aside));
-    // Formal
-    const formal = h('div', { style: { maxWidth: '900px' } });
+    out.push(h('section', { class: 'theory__section' }, h('h2', { class: 'section-title' }, tr(T.tryThis)), prompts));
+    const formal = h('div', { class: 'formal-list' });
     (L.formal || []).forEach((f, i) => {
-      const d = h('details', { class: 'formal', open: i === 0 ? true : null },
+      formal.append(h('details', { class: 'formal', open: i === 0 ? true : null },
         h('summary', null, h('span', null, h('span', { class: 'formal__kind' }, tr(T.kinds[f.kind] || f.kind)), tr(f.title))),
-        h('div', { class: 'formal__body prose', html: richHTML(tr(f.body)) }));
-      formal.append(d);
+        h('div', { class: 'formal__body prose', html: richHTML(tr(f.body)) })));
     });
-    panes.formal.replaceChildren(formal);
+    out.push(h('section', { class: 'theory__section' }, h('h2', { class: 'section-title' }, tr(T.formally)), formal));
+    paneEls.theory.replaceChildren(...out);
   };
-  render();
-  onLangChange(render);
-  const el = h('section', { class: 'learn' }, tabs, panels);
-  setAttr(el, 'aria-label', { es: 'Aprender', en: 'Learn' });
-  return { el, panes, buttons, select };
+  renderTheory();
+  onLangChange(renderTheory);
+
+  const el = h('aside', { class: `inspector${config.wide ? ' inspector--wide' : ''}` }, tabs, panes);
+  setAttr(el, 'aria-label', { es: 'Controles y resultados', en: 'Controls and results' });
+  return { el, panes: paneEls, buttons, select, scroller: panes };
 }
 
 // ---------------------------------------------------------------------------
 // Challenges
 // ---------------------------------------------------------------------------
 
-function setupChallenges(config, meta, store, learn, banner, getDerived) {
+function setupChallenges(config, meta, store, inspector, banner, getDerived, onProgress) {
   const list = config.challenges || [];
   let activeId = null;
   let activeSnapshot = null;
@@ -387,26 +461,25 @@ function setupChallenges(config, meta, store, learn, banner, getDerived) {
   function render() {
     const solved = done();
     const total = list.length;
-    learn.buttons.challenges.count.textContent = total ? `${[...solved].filter((id) => list.some((c) => c.id === id)).length}/${total}` : '';
-    const pane = learn.panes.challenges;
+    const nDone = list.filter((c) => solved.has(c.id)).length;
+    inspector.buttons.challenges.count.textContent = total ? `${nDone}/${total}` : '';
+    onProgress(nDone, total);
+    const pane = inspector.panes.challenges;
     pane.replaceChildren();
     if (!total) return;
-    const nDone = list.filter((c) => solved.has(c.id)).length;
     const progress = h('div', { class: 'progress' }, h('span', { style: { width: `${(100 * nDone) / total}%` } }));
     pane.append(h('div', { class: 'challenge-bar' }, h('span', null, trf(T.progress, { done: nDone, total })), progress));
     const grid = h('div', { class: 'challenges' });
     list.forEach((c, i) => {
       const isDone = solved.has(c.id);
       const isActive = activeId === c.id;
-      const btn = h('button', { type: 'button', class: `btn${isActive ? '' : ' btn--primary'}`, disabled: isActive ? true : null });
+      const btn = h('button', { type: 'button', class: `btn btn--sm${isActive ? '' : ' btn--primary'}`, disabled: isActive ? true : null });
       btn.textContent = tr(isActive ? T.active : isDone ? T.retry : T.start);
       btn.addEventListener('click', () => activate(c.id));
       const status = isDone ? h('span', { class: 'badge badge--ok' }, icon('check'), tr(T.solved)) : null;
       const hint = c.hint ? h('details', null, h('summary', null, tr(T.hint)), h('div', { html: richHTML(tr(c.hint)), style: { marginTop: '6px' } })) : null;
       grid.append(h('article', { class: 'challenge', 'data-active': String(isActive), 'data-done': String(isDone) },
-        h('div', null,
-          h('div', { class: 'challenge__head' }, h('span', { class: 'challenge__num' }, String(i + 1).padStart(2, '0')), status),
-          h('h3', { class: 'challenge__title', html: richHTML(tr(c.title)) })),
+        h('div', { class: 'challenge__head' }, h('span', { class: 'challenge__num' }, String(i + 1).padStart(2, '0')), h('h3', { class: 'challenge__title', html: richHTML(tr(c.title)) }), status),
         h('p', { class: 'challenge__text', html: richHTML(tr(c.text)) }),
         h('div', { class: 'challenge__foot' }, btn, hint)));
     });
@@ -435,7 +508,7 @@ function setupChallenges(config, meta, store, learn, banner, getDerived) {
     activeId = id;
     activeSnapshot = store.snapshot();
     render();
-    document.getElementById('lab').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    inspector.select('controls');
   }
 
   function check(derived) {
@@ -473,3 +546,4 @@ export function composeCanvases(canvases, gap = 4, bg = getComputedStyle(documen
   for (const c of canvases) { ctx.drawImage(c, x, 0); x += c.width + gap; }
   return out;
 }
+

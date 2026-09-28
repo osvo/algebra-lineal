@@ -275,7 +275,7 @@ createLab({
       if (mode === 'diag') {
         const t = state.t;
         const names = dec && dec.kind === 'complex' ? ['P^{-1}', 'C', 'P'] : dec && dec.kind === 'jordan' ? ['P^{-1}', 'J', 'P'] : ['P^{-1}', 'D', 'P'];
-        diagStages.update(names.map((nm, i) => `${i + 1}.\;${nm}`), Math.min(2, Math.floor(t)));
+        diagStages.update(names.map((nm, i) => `${i + 1}.\\;${nm}`), Math.min(2, Math.floor(t)));
       }
 
       // Readouts

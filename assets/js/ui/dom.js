@@ -78,6 +78,10 @@ const ICONS = {
   dice: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/><circle cx="16" cy="16" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/>',
   swap: '<path d="M7 7h13l-4-4M17 17H4l4 4"/>',
   close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  sidebar: '<rect x="3" y="4" width="18" height="16" rx="1"/><path d="M9 4v16"/>',
+  code: '<path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/>',
+  chevron: '<path d="M9 6l6 6-6 6"/>',
+  apps: '<rect x="4" y="4" width="6.5" height="6.5"/><rect x="13.5" y="4" width="6.5" height="6.5"/><rect x="4" y="13.5" width="6.5" height="6.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5"/>',
 };
 
 export function icon(name) {

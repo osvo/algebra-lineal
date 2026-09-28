@@ -141,7 +141,7 @@ createLab({
       const t = state.t;
       const reflU = L.det2(an.dec.U) < 0;
       const names = ['V^{\\mathsf T}', '\\Sigma', 'U'];
-      stageRow.update(names.map((nm, i) => `${i + 1}.\;${nm}`), Math.min(2, Math.floor(t)));
+      stageRow.update(names.map((nm, i) => `${i + 1}.\\;${nm}`), Math.min(2, Math.floor(t)));
 
       const { F, AtA, eig, dec } = an;
       r.ata.set(`A^{\\mathsf T}A = ${texMatrix(AtA)}`, { es: 'Simétrica y semidefinida positiva: sus valores propios son ≥ 0 y sus vectores propios son perpendiculares.', en: 'Symmetric positive semidefinite: its eigenvalues are ≥ 0 and its eigenvectors are perpendicular.' });

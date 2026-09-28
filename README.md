@@ -31,7 +31,8 @@ Catorce laboratorios interactivos para desarrollar intuición geométrica sobre 
 - **Explicaciones por capas.** Cada módulo incluye «Qué estás viendo», una lista de experimentos guiados y una pestaña «Formalmente» con definiciones y teoremas enunciados con precisión (KaTeX).
 - **58 retos** con verificación automática y pistas. El progreso se guarda en el navegador.
 - **Enlaces compartibles.** Toda la configuración (matrices, vectores, modo, paso de la animación) vive en la URL.
-- **Modo presentación** (tecla `P`) para proyectar, **tema claro/oscuro** y **exportación a PNG**.
+- **Interfaz de aplicación.** Barra lateral con los 14 aplicativos (se pliega con `B`), lienzo a pantalla completa e inspector con pestañas *Controles*, *Teoría* y *Retos*, cuyo ancho se ajusta arrastrando su borde. El menú de inicio muestra los aplicativos por capítulo con el progreso de los retos.
+- **Modo presentación** (tecla `P`), **tema oscuro tipo IDE** (por defecto) o claro, y **exportación a PNG**.
 - **Accesible y adaptable.** Funciona en móvil (arrastre y pellizco). En los lienzos 2D los puntos también se mueven con el teclado (`[`/`]` para elegir, flechas para mover, `+`/`−` para acercar), y todo valor que se arrastra también se puede escribir en una celda etiquetada.
 - **Sin conexión.** Es una PWA instalable y, tras la primera visita, funciona sin internet. No depende de ningún CDN.
 
@@ -111,7 +112,8 @@ Fourteen interactive labs for building geometric intuition about linear algebra:
 - **Layered explanations**: “What you are seeing”, guided experiments and a “Formally” tab with precise definitions and theorems.
 - **58 challenges** with automatic checking and hints; progress is saved in the browser.
 - **Shareable links**: the whole configuration lives in the URL.
-- **Presentation mode** (`P` key), **light/dark theme** and **PNG export**.
+- **App interface**: a sidebar with the 14 apps (toggle with `B`), a full-height canvas and an inspector with *Controls*, *Theory* and *Challenges* tabs whose width can be dragged. The start menu shows the apps by chapter with challenge progress.
+- **Presentation mode** (`P` key), **IDE-style dark theme** (default) or light theme, and **PNG export**.
 - **Accessible and responsive**: touch drag and pinch; on 2D canvases points can also be moved with the keyboard (`[`/`]` to select, arrows to move, `+`/`−` to zoom), and every draggable value can also be typed into a labelled cell.
 - **Offline**: an installable PWA with no CDN dependencies.
 

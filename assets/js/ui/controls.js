@@ -197,17 +197,39 @@ export function iconButton({ iconName, label, onClick, pressed = null }) {
   return el;
 }
 
+const COLLAPSED_KEY = 'linear-lab-collapsed';
+
+/**
+ * Inspector section with a header that folds it away (remembered per app in this browser).
+ */
 export function card({ title, actions = [], body = [], className = '' }) {
-  const t = h('h2', { class: 'card__title' });
-  setText(t, title);
+  const label = h('span');
+  setText(label, title);
+  const toggle = h('button', { type: 'button', class: 'card__toggle', 'aria-expanded': 'true' }, icon('chevron'), label);
+  const t = h('h2', { class: 'card__title' }, toggle);
   const bodyEl = h('div', { class: 'card__body' }, body);
   const el = h('section', { class: `card ${className}` },
     h('div', { class: 'card__head' }, t, actions.length ? h('div', { class: 'row' }, actions) : null),
     bodyEl);
+  const key = typeof title === 'object' && title ? title.es : String(title);
+  const app = document.body.dataset.module || 'home';
+  const read = () => { try { return JSON.parse(localStorage.getItem(COLLAPSED_KEY) || '{}'); } catch { return {}; } };
+  const setCollapsed = (on, save = true) => {
+    el.classList.toggle('card--collapsed', on);
+    toggle.setAttribute('aria-expanded', String(!on));
+    bodyEl.hidden = on;
+    if (!save) return;
+    const all = read();
+    const set = new Set(all[app] || []);
+    if (on) set.add(key); else set.delete(key);
+    all[app] = [...set];
+    try { localStorage.setItem(COLLAPSED_KEY, JSON.stringify(all)); } catch { /* ignore */ }
+  };
+  if ((read()[app] || []).includes(key)) setCollapsed(true, false);
+  toggle.addEventListener('click', () => setCollapsed(!el.classList.contains('card--collapsed')));
   return { el, body: bodyEl, title: t };
 }
 
-/** A label/value row; set(tex | Node | string, note). */
 export function readout(label, { block = false, labelTex = null } = {}) {
   const k = h('div', { class: 'readout__k' });
   if (labelTex) renderTex(k, labelTex); else setText(k, label);

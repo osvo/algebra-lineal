@@ -9,6 +9,7 @@ import { RationalField, FloatField } from '../core/fields.js';
 import { Rational } from '../core/rational.js';
 import * as L from '../core/linalg.js';
 import { realEigenDirections, approxVector } from '../core/eigen.js';
+import { jordanForm } from '../core/jordan.js';
 import { texValue, texVector, texMatrix, cls } from '../core/format.js';
 import {
   analyzeSquare, texSpan, texDetNote, eigenTex, eigenvectorTex, defectiveNote, charPolyTex,
@@ -87,6 +88,7 @@ function floatEntry(x) {
 }
 
 const analyze = memo((A) => analyzeSquare(A));
+const jordanOf = memo((an) => jordanForm({ exact: an.exact ? an.M : null, float: an.Af }));
 const effective = (s) => (s.param ? paramMatrix(s.param, s.n, s.theta) || s.A : s.A);
 
 createLab({
@@ -175,6 +177,7 @@ createLab({
       poly: readout({ es: 'Polinomio', en: 'Polynomial' }, { block: true }),
       eigval: readout({ es: 'Valores propios', en: 'Eigenvalues' }, { block: true }),
       eigvec: readout({ es: 'Vectores propios', en: 'Eigenvectors' }, { block: true }),
+      jordan: readout({ es: 'Forma de Jordan', en: 'Jordan form' }, { block: true }),
       inv: readout(null, { labelTex: 'A^{-1}' }),
     };
     const analysisCard = card({ title: { es: 'Análisis', en: 'Analysis' }, body: [h('div', { class: 'readouts' }, Object.values(r).map((x) => x.el))] });
@@ -286,6 +289,17 @@ createLab({
       if (et.reals.length) { r.eigvec.set(eigenvectorTex(an.eig), defectiveNote(an.eig) || (et.complex.length ? { es: 'El par complejo corresponde a un plano invariante donde A actúa como rotación-escalado.', en: 'The complex pair corresponds to an invariant plane on which A acts as a rotation-scaling.' } : null)); r.eigvec.show(true); }
       else r.eigvec.show(false);
       r.inv.set(an.inv ? texMatrix(an.inv) : `\\text{${tr({ es: 'no existe', en: 'does not exist' })}}`);
+      const jf = jordanOf(entriesKey(A), an);
+      if (jf) {
+        const texM = (Mx) => texMatrix(jf.exact ? Mx : Mx.map((row) => row.map((x) => Math.round(x * 1e4) / 1e4)));
+        const sizes = jf.blocks.map((b) => b.size).join(' + ');
+        r.jordan.set(`\\begin{gathered}A = PJP^{-1} \\\\ J = ${texM(jf.J)},\\quad P = ${texM(jf.P)}\\end{gathered}`, {
+          diag: { es: 'Diagonalizable: J es diagonal y las columnas de P son vectores propios.', en: 'Diagonalizable: J is diagonal and the columns of P are eigenvectors.' },
+          jordan: { es: `No diagonalizable: ${jf.blocks.length === 1 ? `un bloque de Jordan de tamaño ${sizes}` : `bloques de Jordan de tamaños ${sizes}`}. En cada bloque las columnas de P forman una cadena …, (A − λI)w, w de vectores propios generalizados.`, en: `Not diagonalizable: ${jf.blocks.length === 1 ? `one Jordan block of size ${sizes}` : `Jordan blocks of sizes ${sizes}`}. In each block the columns of P form a chain …, (A − λI)w, w of generalized eigenvectors.` },
+          complex: { es: 'Forma real de Jordan: el par a ± bi aparece como el bloque [[a, −b], [b, a]], una rotación-escalado en el plano invariante (valores aproximados).', en: 'Real Jordan form: the pair a ± bi appears as the block [[a, −b], [b, a]], a rotation-scaling on the invariant plane (approximate values).' },
+        }[jf.kind]);
+        r.jordan.show(true);
+      } else r.jordan.show(false);
 
       ctx.setLegend([
         { color: 'var(--c-i)', tex: 'A\\hat{\\imath}' },
@@ -391,6 +405,14 @@ createLab({
         },
       },
       {
+        kind: 'theorem',
+        title: { es: 'Forma canónica de Jordan', en: 'Jordan canonical form' },
+        body: {
+          es: '<p>Si el polinomio característico de $A$ se factoriza en factores lineales (siempre ocurre sobre $\\mathbb{C}$), existe $P$ invertible con $A = PJP^{-1}$, donde $J$ es diagonal por bloques $J_k(\\lambda) = \\lambda I_k + N_k$ y $N_k$ tiene unos justo encima de la diagonal. Para cada $\\lambda$, el número de bloques es la multiplicidad geométrica y la suma de sus tamaños es la algebraica; los tamaños quedan determinados por $\\dim\\ker(A-\\lambda I)^j$. $A$ es diagonalizable si y solo si todos los bloques son $1\\times1$. En $\\mathbb{R}^3$, un par complejo $a\\pm bi$ se representa en la forma real con el bloque $\\begin{bmatrix}a&-b\\\\b&a\\end{bmatrix}$.</p>',
+          en: '<p>If the characteristic polynomial of $A$ splits into linear factors (always true over $\\mathbb{C}$), there is an invertible $P$ with $A = PJP^{-1}$, where $J$ is block diagonal with blocks $J_k(\\lambda) = \\lambda I_k + N_k$ and $N_k$ has ones just above the diagonal. For each $\\lambda$ the number of blocks is the geometric multiplicity and their sizes add up to the algebraic one; the sizes are determined by $\\dim\\ker(A-\\lambda I)^j$. $A$ is diagonalizable if and only if every block is $1\\times1$. In $\\mathbb{R}^3$, a complex pair $a\\pm bi$ is represented in real form by the block $\\begin{bmatrix}a&-b\\\\b&a\\end{bmatrix}$.</p>',
+        },
+      },
+      {
         kind: 'definition',
         title: { es: 'Proyecciones, reflexiones y rotaciones', en: 'Projections, reflections and rotations' },
         body: {
@@ -410,6 +432,20 @@ createLab({
   },
 
   challenges: [
+    {
+      id: 'jordan3',
+      title: { es: 'Un solo bloque de Jordan', en: 'A single Jordan block' },
+      text: { es: 'Construye una matriz que no sea triangular y cuya forma de Jordan sea un único bloque $3\\times 3$.', en: 'Build a matrix that is not triangular and whose Jordan form is a single $3\\times 3$ block.' },
+      hint: { es: 'Necesitas un único valor propio triple con un solo vector propio: por ejemplo $\\begin{bmatrix}1&1&1\\\\-1&3&0\\\\0&0&2\\end{bmatrix}$ tiene $\\lambda = 2$ triple. También puedes conjugar $J_3(\\lambda)$ con una matriz invertible.', en: 'You need a single triple eigenvalue with only one eigenvector: e.g. $\\begin{bmatrix}1&1&1\\\\-1&3&0\\\\0&0&2\\end{bmatrix}$ has $\\lambda = 2$ three times. You can also conjugate $J_3(\\lambda)$ by an invertible matrix.' },
+      check: (s, d) => {
+        if (!d.an) return false;
+        const jf = jordanOf(entriesKey(d.A), d.an);
+        const Af = d.an.Af;
+        const upper = Af[1][0] === 0 && Af[2][0] === 0 && Af[2][1] === 0;
+        const lower = Af[0][1] === 0 && Af[0][2] === 0 && Af[1][2] === 0;
+        return !!jf && jf.blocks.length === 1 && jf.blocks[0].size === 3 && !upper && !lower;
+      },
+    },
     {
       id: 'vol3',
       title: { es: 'Volumen −3', en: 'Volume −3' },

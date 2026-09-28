@@ -1,7 +1,8 @@
 import { createLab } from '../ui/shell.js';
 import { codec, M } from '../ui/store.js';
 import { Plane2D } from '../ui/plane2d.js';
-import { card, matrixEditor, flagChip, readout, animator, stageLabels } from '../ui/controls.js';
+import { Scene3D, THREE } from '../ui/scene3d.js';
+import { card, matrixEditor, flagChip, readout, animator, stageLabels, segmented } from '../ui/controls.js';
 import { h } from '../ui/dom.js';
 import { tr } from '../ui/i18n.js';
 import { entryFromNumber } from '../core/parse.js';
@@ -21,6 +22,15 @@ const PRESETS = [
   { id: 'refl', label: { es: 'Con reflexión (det < 0)', en: 'With reflection (det < 0)' }, value: [[1, 2], [2, 1]] },
   { id: 'rank1', label: { es: 'Rango 1', en: 'Rank 1' }, value: [[2, 1], [4, 2]] },
   { id: 'ill', label: { es: 'Mal condicionada', en: 'Ill-conditioned' }, value: [[1, 1], [1, '1.1']] },
+];
+
+const PRESETS3 = [
+  { id: 'q321', label: { es: 'σ = 3, 2, 1 (A = QΣ)', en: 'σ = 3, 2, 1 (A = QΣ)' }, value: [[2, '-4/3', '1/3'], [2, '2/3', '-2/3'], [1, '4/3', '2/3']] },
+  { id: 'shear', label: { es: 'Cizalla', en: 'Shear' }, value: [[1, 1, 0], [0, 1, 0], [0, 0, 1]] },
+  { id: 'sym', label: { es: 'Simétrica', en: 'Symmetric' }, value: [[2, 1, 0], [1, 2, 1], [0, 1, 2]] },
+  { id: 'refl', label: { es: 'Con reflexión (det < 0)', en: 'With reflection (det < 0)' }, value: [[1, 2, 0], [2, 1, 0], [0, 0, 1]] },
+  { id: 'proj', label: { es: 'Proyección a un plano (rango 2)', en: 'Projection onto a plane (rank 2)' }, value: [[1, 0, 0], [0, 1, 0], [0, 0, 0]] },
+  { id: 'rank1', label: { es: 'Rango 1', en: 'Rank 1' }, value: [[1, 2, 2], [2, 4, 4], [1, 2, 2]] },
 ];
 
 const analyze = memo((A) => {
@@ -43,6 +53,37 @@ function orthoPath(Q, s) {
   return L.mulFloat(rot(s * phi), [[1, 0], [0, 1 - 2 * s]]);
 }
 
+/** Rotation by angle θ about the unit axis u (Rodrigues). */
+function rodrigues(u, th) {
+  const [x, y, z] = u, c = Math.cos(th), s = Math.sin(th), C = 1 - c;
+  return [
+    [c + x * x * C, x * y * C - z * s, x * z * C + y * s],
+    [y * x * C + z * s, c + y * y * C, y * z * C - x * s],
+    [z * x * C - y * s, z * y * C + x * s, c + z * z * C],
+  ];
+}
+
+/** Continuous path I → Q for an orthogonal 3×3 Q: rotation about its axis, or rotation ∘ flip of z. */
+function orthoPath3(Q, s) {
+  const flip = L.det3(Q) < 0;
+  const R = flip ? Q.map((row) => [row[0], row[1], -row[2]]) : Q; // R = Q·diag(1, 1, −1)
+  const cos = Math.max(-1, Math.min(1, (R[0][0] + R[1][1] + R[2][2] - 1) / 2));
+  const th = Math.acos(cos);
+  let M;
+  if (th < 1e-9) M = L.identityFloat(3);
+  else {
+    let axis = [R[2][1] - R[1][2], R[0][2] - R[2][0], R[1][0] - R[0][1]];
+    if (Math.hypot(...axis) < 1e-6) {
+      // θ ≈ π: the axis is a column of R + I.
+      const B = R.map((row, i) => row.map((x, j) => x + (i === j ? 1 : 0)));
+      const cols = [0, 1, 2].map((j) => B.map((row) => row[j]));
+      axis = cols.reduce((best, c) => (Math.hypot(...c) > Math.hypot(...best) ? c : best));
+    }
+    M = rodrigues(L.normalize(axis), s * th);
+  }
+  return flip ? L.mulFloat(M, [[1, 0, 0], [0, 1, 0], [0, 0, 1 - 2 * s]]) : M;
+}
+
 createLab({
   id: 'svd',
   lead: {
@@ -50,37 +91,50 @@ createLab({
     en: 'Every matrix, symmetric or not, is a rotation, a stretch along two perpendicular axes and another rotation (perhaps with a reflection). That is why it turns the unit circle into an ellipse.',
   },
   state: {
+    n: { def: 2, codec: codec.int(2, 3) },
     A: { def: M([[3, 0], [4, 5]]), codec: codec.matrix(2, 2) },
+    B: { def: M(PRESETS3[0].value), codec: codec.matrix(3, 3) },
     t: { def: 3, codec: codec.num(0, 3) },
     show: { def: ['circle', 'axes', 'grid'], codec: codec.flags(['circle', 'axes', 'grid', 'rank1']) },
   },
 
   build(ctx) {
     const { store } = ctx;
-    const plane = new Plane2D(ctx.addView(), { range: 7.2 });
     const anim = animator({ store, key: 't', max: 3 });
     ctx.bar.append(anim.el);
     const stageRow = stageLabels();
     anim.el.append(stageRow.el);
 
-    const setCol = (j) => ([x, y]) => {
+    const setCol2 = (j) => ([x, y]) => {
       const A = store.get('A').map((row) => row.slice());
       A[0][j] = entryFromNumber(x); A[1][j] = entryFromNumber(y);
       anim.pause();
       store.set({ A, t: 3 });
     };
-    plane.addHandle({ id: 'i', color: 'i', get: () => [store.get('A')[0][0].x, store.get('A')[1][0].x], set: setCol(0) });
-    plane.addHandle({ id: 'j', color: 'j', get: () => [store.get('A')[0][1].x, store.get('A')[1][1].x], set: setCol(1) });
+    const setCol3 = (j) => (p) => {
+      const B = store.get('B').map((row) => row.slice());
+      for (let i = 0; i < 3; i++) B[i][j] = entryFromNumber(p[i]);
+      anim.pause();
+      store.set({ B, t: 3 });
+    };
 
-    const editor = matrixEditor({ rows: 2, cols: 2, label: 'A =', colColors: COL_VARS, get: () => store.get('A'), set: (A) => store.set({ A, t: 3 }), name: { es: 'Matriz A', en: 'Matrix A' } });
-    const presets = presetSelect({ store, key: 'A', presets: PRESETS, onPick: (p) => { anim.pause(); store.set({ A: M(p.value), t: 3 }); } });
+    // Panel ---------------------------------------------------------------------
+    const dimSeg = segmented({
+      options: [{ value: 2, label: { es: '2 × 2', en: '2 × 2' } }, { value: 3, label: { es: '3 × 3', en: '3 × 3' } }],
+      get: () => store.get('n'), set: (n) => { anim.pause(); store.set({ n, t: 3 }); },
+      label: { es: 'Tamaño', en: 'Size' },
+    });
+    const editor2 = matrixEditor({ rows: 2, cols: 2, label: 'A =', colColors: COL_VARS, get: () => store.get('A'), set: (A) => store.set({ A, t: 3 }), name: { es: 'Matriz A', en: 'Matrix A' } });
+    const editor3 = matrixEditor({ rows: 3, cols: 3, label: 'A =', colColors: COL_VARS, get: () => store.get('B'), set: (B) => store.set({ B, t: 3 }), name: { es: 'Matriz A', en: 'Matrix A' } });
+    const presets2 = presetSelect({ store, key: 'A', presets: PRESETS, onPick: (p) => { anim.pause(); store.set({ A: M(p.value), t: 3 }); } });
+    const presets3 = presetSelect({ store, key: 'B', presets: PRESETS3, onPick: (p) => { anim.pause(); store.set({ B: M(p.value), t: 3 }); } });
     const chips = [
-      flagChip(store, 'show', 'circle', { es: 'Círculo → elipse', en: 'Circle → ellipse' }, 'var(--c-v)'),
+      flagChip(store, 'show', 'circle', { es: 'Círculo o esfera → elipse o elipsoide', en: 'Circle or sphere → ellipse or ellipsoid' }, 'var(--c-v)'),
       flagChip(store, 'show', 'axes', { es: 'Vectores singulares', en: 'Singular vectors' }, 'var(--c-w)'),
-      flagChip(store, 'show', 'grid', { es: 'Cuadrícula', en: 'Grid' }, 'var(--tgrid)'),
+      flagChip(store, 'show', 'grid', { es: 'Cuadrícula (2D)', en: 'Grid (2D)' }, 'var(--tgrid)'),
       flagChip(store, 'show', 'rank1', { es: 'Aproximación de rango 1', en: 'Rank-1 approximation' }, 'var(--c-eig)'),
     ];
-    const matrixCard = card({ title: { es: 'Matriz', en: 'Matrix' }, body: [editor.el, presets.el, h('div', { class: 'chip-row' }, chips.map((c) => c.el))] });
+    const matrixCard = card({ title: { es: 'Matriz', en: 'Matrix' }, body: [dimSeg.el, editor2.el, editor3.el, presets2.el, presets3.el, h('div', { class: 'chip-row' }, chips.map((c) => c.el))] });
     const r = {
       ata: readout(null, { labelTex: 'A^{\\mathsf T}A', block: true }),
       sig: readout({ es: 'Valores singulares', en: 'Singular values' }, { block: true }),
@@ -92,16 +146,42 @@ createLab({
     const resultsCard = card({ title: { es: 'Análisis', en: 'Analysis' }, body: [h('div', { class: 'readouts' }, Object.values(r).map((x) => x.el))] });
     ctx.panel.append(matrixCard.el, resultsCard.el);
 
-    let cur = null;
-    plane.setDraw((g) => {
-      if (!cur) return;
-      const { dec, t, show } = cur;
+    // Views -----------------------------------------------------------------------
+    let view = null, viewN = 0, cur = null;
+    function buildView(n) {
+      if (view) view.dispose();
+      ctx.clearViews();
+      const el = ctx.addView();
+      if (n === 2) {
+        const pl = new Plane2D(el, { range: 7.2 });
+        pl.addHandle({ id: 'i', color: 'i', get: () => [store.get('A')[0][0].x, store.get('A')[1][0].x], set: setCol2(0) });
+        pl.addHandle({ id: 'j', color: 'j', get: () => [store.get('A')[0][1].x, store.get('A')[1][1].x], set: setCol2(1) });
+        pl.setDraw((g) => cur && draw2D(g, cur));
+        view = pl;
+      } else {
+        const sc = new Scene3D(el, { extent: 4, frustum: 11 });
+        ['i', 'j', 'k'].forEach((key, j) => sc.addHandle({ id: key, color: key, visible: () => store.get('t') > 2.999, get: () => store.get('B').map((row) => row[j].x), set: setCol3(j) }));
+        sc.onTheme = () => ctx.rerender();
+        view = sc;
+      }
+      viewN = n;
+    }
+
+    /** M_t for the staged animation V^T, then Σ, then U. */
+    function stagedMatrix(dec, t, n) {
       const { U, V, S } = dec;
       const Vt = L.transpose(V);
-      let Mt;
-      if (t <= 1) Mt = orthoPath(Vt, t);
-      else if (t <= 2) { const s = t - 1; Mt = L.mulFloat([[1 + s * (S[0] - 1), 0], [0, 1 + s * (S[1] - 1)]], Vt); }
-      else Mt = L.mulFloat(orthoPath(U, t - 2), L.mulFloat([[S[0], 0], [0, S[1]]], Vt));
+      const path = n === 2 ? orthoPath : orthoPath3;
+      const Sig = (s) => Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => (i === j ? 1 + s * (S[i] - 1) : 0)));
+      if (t <= 1) return path(Vt, t);
+      if (t <= 2) return L.mulFloat(Sig(t - 1), Vt);
+      return L.mulFloat(path(U, t - 2), L.mulFloat(Sig(1), Vt));
+    }
+
+    function draw2D(g, c) {
+      const { dec, t, show } = c;
+      const { U, V, S } = dec;
+      const Mt = stagedMatrix(dec, t, 2);
       g.backgroundGrid();
       if (show.includes('grid')) g.transformedGrid(Mt, { color: g.c.tgrid, alpha: 0.75 });
       if (show.includes('circle')) {
@@ -130,55 +210,112 @@ createLab({
       const ti = L.mv2(Mt, 1, 0), tj = L.mv2(Mt, 0, 1);
       g.arrow([0, 0], ti, { color: g.c.i, width: 2.5, alpha: 0.8 });
       g.arrow([0, 0], tj, { color: g.c.j, width: 2.5, alpha: 0.8 });
-    });
+    }
+
+    const circle = (a, b) => Array.from({ length: 97 }, (_, k) => { const s = (2 * Math.PI * k) / 96; const p = [0, 0, 0]; p[a] = Math.cos(s); p[b] = Math.sin(s); return p; });
+    const AXIS_COLORS = ['w', 'eig', 'img'];
+
+    function draw3D(sc, c) {
+      const { dec, t, show } = c;
+      const { U, V, S } = dec;
+      const Mt = stagedMatrix(dec, t, 3);
+      sc.clear();
+      if (show.includes('circle')) {
+        // Unit sphere (fixed) and its image (transformed group).
+        [[0, 1], [0, 2], [1, 2]].forEach(([a, b]) => sc.line(circle(a, b), 'muted', { opacity: 0.45, dashed: true }));
+        const grp = sc.transformedGroup(Mt);
+        grp.add(new THREE.Mesh(new THREE.SphereGeometry(1, 40, 24), new THREE.MeshBasicMaterial({ color: sc.color('v'), transparent: true, opacity: 0.12, depthWrite: false })));
+        for (let k = -2; k <= 2; k++) {
+          const z = k / 3, rr = Math.sqrt(1 - z * z);
+          sc.line(Array.from({ length: 73 }, (_, i) => { const s = (2 * Math.PI * i) / 72; return [rr * Math.cos(s), rr * Math.sin(s), z]; }), 'v', { opacity: 0.55, group: grp });
+        }
+        for (let k = 0; k < 6; k++) {
+          const phi = (Math.PI * k) / 6;
+          sc.line(Array.from({ length: 73 }, (_, i) => { const s = (2 * Math.PI * i) / 72; return [Math.cos(phi) * Math.sin(s), Math.sin(phi) * Math.sin(s), Math.cos(s)]; }), 'v', { opacity: 0.35, group: grp });
+        }
+      }
+      if (show.includes('rank1') && t > 2.999) {
+        const u1 = U.map((row) => row[0]);
+        sc.line([u1.map((x) => -S[0] * x), u1.map((x) => S[0] * x)], 'eig', { opacity: 0.9 });
+      }
+      if (show.includes('axes')) {
+        for (let j = 0; j < 3; j++) {
+          const vj = V.map((row) => row[j]);
+          const aj = L.mv3(Mt, vj);
+          if (t < 1e-6) sc.arrow([0, 0, 0], vj, AXIS_COLORS[j], { opacity: 0.9, radius: 0.03 });
+          else sc.arrow([0, 0, 0], aj, AXIS_COLORS[j], { radius: 0.045 });
+          const lab = t > 2.999 ? `\\sigma_{${j + 1}}\\mathbf{u}_{${j + 1}}` : t < 1e-6 ? `\\mathbf{v}_{${j + 1}}` : '';
+          if (lab && Math.hypot(...aj) > 0.05) sc.label(aj, lab, AXIS_COLORS[j], { tex: true, offset: [12, -12], size: 15 });
+        }
+      }
+      ['i', 'j', 'k'].forEach((key, j) => {
+        const e = [0, 0, 0]; e[j] = 1;
+        sc.arrow([0, 0, 0], L.mv3(Mt, e), key, { opacity: 0.7, radius: 0.028 });
+      });
+      sc.syncHandles();
+      sc.requestRender();
+    }
 
     function render(state) {
-      const A = state.A;
-      const an = analyze(entriesKey(A), A);
+      const n = state.n;
+      if (n !== viewN) buildView(n);
+      const Aent = n === 2 ? state.A : state.B;
+      const an = analyze(entriesKey(Aent), Aent);
       cur = { dec: an.dec, t: state.t, show: state.show };
-      plane.requestRender();
-      editor.update(); anim.update(); chips.forEach((c) => c.update());
+      if (n === 2) view.requestRender(); else draw3D(view, cur);
+      dimSeg.update(); editor2.update(); editor3.update(); anim.update(); chips.forEach((c) => c.update());
+      editor2.el.hidden = presets2.el.hidden = n !== 2;
+      editor3.el.hidden = presets3.el.hidden = n !== 3;
+      chips[2].el.hidden = n !== 2;
       const t = state.t;
-      const reflU = L.det2(an.dec.U) < 0;
+      const detU = n === 2 ? L.det2(an.dec.U) : L.det3(an.dec.U);
+      const reflU = detU < 0;
       const names = ['V^{\\mathsf T}', '\\Sigma', 'U'];
       stageRow.update(names.map((nm, i) => `${i + 1}.\\;${nm}`), Math.min(2, Math.floor(t)));
 
       const { F, AtA, eig, dec } = an;
       r.ata.set(`A^{\\mathsf T}A = ${texMatrix(AtA)}`, { es: 'Simétrica y semidefinida positiva: sus valores propios son ≥ 0 y sus vectores propios son perpendiculares.', en: 'Symmetric positive semidefinite: its eigenvalues are ≥ 0 and its eigenvectors are perpendicular.' });
-      const lams = eig.eigen.flatMap((e) => Array(e.alg).fill(e)).slice(0, 2);
+      const lams = eig.eigen.flatMap((e) => Array(e.alg).fill(e)).slice(0, n);
       const sigTex = lams.map((e, i) => {
         const exactSqrt = e.value instanceof Rational && e.value.sign() >= 0;
-        const s = exactSqrt ? texSqrt(e.value) : texValue(Math.sqrt(Math.max(0, e.approx.re)));
+        const s = exactSqrt ? texSqrt(e.value) : texValue(dec.S[i]);
         const raw = exactSqrt ? `\\sqrt{${texValue(e.value)}}` : '';
-        return `\\sigma_{${i + 1}} = \\sqrt{\\lambda_{${i + 1}}} = ${raw && raw !== s ? `${raw} = ` : ''}${s}`;
+        return `\\sigma_{${i + 1}} = ${raw && raw !== s ? `${raw} = ` : ''}${s}`;
       });
-      r.sig.set(sigTex.join(',\\qquad '), { es: `≈ ${fmtDecimal(dec.S[0], 4)} y ${fmtDecimal(dec.S[1], 4)}. Son las longitudes de los semiejes de la elipse.`, en: `≈ ${fmtDecimal(dec.S[0], 4)} and ${fmtDecimal(dec.S[1], 4)}. They are the lengths of the ellipse’s semi-axes.` });
-      const Sig = [[dec.S[0], 0], [0, dec.S[1]]];
-      r.dec.set(`A = U\\Sigma V^{\\mathsf T} = ${texMatrix(dec.U, { colClasses: ['c-w', 'c-eig'] })}${texMatrix(Sig)}${texMatrix(L.transpose(dec.V))}`,
+      const approx = dec.S.map((x) => fmtDecimal(x, 4)).join(', ');
+      r.sig.set(sigTex.join(',\\qquad '), { es: `≈ ${approx}. Son las longitudes de los semiejes de la ${n === 2 ? 'elipse' : 'elipsoide'}.`, en: `≈ ${approx}. They are the lengths of the semi-axes of the ${n === 2 ? 'ellipse' : 'ellipsoid'}.` });
+      const Sig = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => (i === j ? dec.S[i] : 0)));
+      const round = (Mx) => Mx.map((row) => row.map((x) => Math.round(x * 1e4) / 1e4));
+      r.dec.set(`A = U\\Sigma V^{\\mathsf T} = ${texMatrix(n === 2 ? dec.U : round(dec.U), { colClasses: ['c-w', 'c-eig', 'c-img'] })}${texMatrix(n === 2 ? Sig : round(Sig))}${texMatrix(n === 2 ? L.transpose(dec.V) : round(L.transpose(dec.V)))}`,
         reflU ? { es: 'det A < 0: U es una reflexión (V se eligió como rotación).', en: 'det A < 0: U is a reflection (V was chosen to be a rotation).' } : { es: 'U y V son rotaciones.', en: 'U and V are rotations.' });
       const detTex = texValue(F === RationalField ? an.det.abs() : Math.abs(F.toNumber(an.det)));
-      r.geo.set(`\\sigma_1\\sigma_2 = |\\det A| = ${detTex},\\qquad \\sigma_1^2 + \\sigma_2^2 = \\lVert A\\rVert_F^2 = \\operatorname{tr}(A^{\\mathsf T}A) = ${texValue(L.trace(AtA, F))}`,
-        { es: 'El área de la elipse es π·σ₁·σ₂ = π·|det A|.', en: 'The ellipse’s area is π·σ₁·σ₂ = π·|det A|.' });
+      const prod = n === 2 ? '\\sigma_1\\sigma_2' : '\\sigma_1\\sigma_2\\sigma_3';
+      const sumSq = n === 2 ? '\\sigma_1^2 + \\sigma_2^2' : '\\sigma_1^2 + \\sigma_2^2 + \\sigma_3^2';
+      r.geo.set(`${prod} = |\\det A| = ${detTex},\\qquad ${sumSq} = \\lVert A\\rVert_F^2 = ${texValue(L.trace(AtA, F))}`,
+        n === 2 ? { es: 'El área de la elipse es π·σ₁·σ₂ = π·|det A|.', en: 'The ellipse’s area is π·σ₁·σ₂ = π·|det A|.' } : { es: 'El volumen del elipsoide es (4/3)π·σ₁σ₂σ₃ = (4/3)π·|det A|.', en: 'The ellipsoid’s volume is (4/3)π·σ₁σ₂σ₃ = (4/3)π·|det A|.' });
       const kappa = conditionNumber(dec.S);
       let kTex = Number.isFinite(kappa) ? fmtDecimal(kappa, 4, { unicodeMinus: false }) : '\\infty';
-      if (lams.length === 2 && lams.every((e) => e.value instanceof Rational) && !lams[1].value.isZero()) kTex = texSqrt(lams[0].value.div(lams[1].value));
-      r.cond.set(`\\lVert A\\rVert_2 = \\sigma_1,\\qquad \\kappa(A) = \\frac{\\sigma_1}{\\sigma_2} = ${kTex}`,
-        !Number.isFinite(kappa) ? { es: 'σ₂ = 0: A es singular (rango ' + dec.rank + ').', en: 'σ₂ = 0: A is singular (rank ' + dec.rank + ').' }
+      const first = lams[0], last = lams[n - 1];
+      if (lams.length === n && first.value instanceof Rational && last.value instanceof Rational && !last.value.isZero()) kTex = texSqrt(first.value.div(last.value));
+      r.cond.set(`\\lVert A\\rVert_2 = \\sigma_1,\\qquad \\kappa(A) = \\frac{\\sigma_1}{\\sigma_${n}} = ${kTex}`,
+        !Number.isFinite(kappa) ? { es: `σ${n === 2 ? '₂' : '₃'} = 0: A es singular (rango ${dec.rank}).`, en: `σ${n === 2 ? '₂' : '₃'} = 0: A is singular (rank ${dec.rank}).` }
           : kappa > 50 ? { es: 'κ grande: A está cerca de ser singular; resolver Ax = b amplifica los errores relativos hasta κ veces.', en: 'Large κ: A is close to singular; solving Ax = b amplifies relative errors up to κ times.' } : null);
-      const A1 = L.mulFloat([[dec.U[0][0] * dec.S[0]], [dec.U[1][0] * dec.S[0]]], [[dec.V[0][0], dec.V[1][0]]]);
+      const u1 = dec.U.map((row) => [row[0] * dec.S[0]]), v1t = [dec.V.map((row) => row[0])];
+      const A1 = L.mulFloat(u1, v1t);
       r.r1.set(`A_1 = \\sigma_1\\mathbf{u}_1\\mathbf{v}_1^{\\mathsf T} = ${texMatrix(A1, { digits: 3 })},\\qquad \\lVert A - A_1\\rVert_2 = \\sigma_2`,
         { es: 'Es la matriz de rango 1 más cercana a A (Eckart–Young).', en: 'It is the rank-1 matrix closest to A (Eckart–Young).' });
 
       ctx.setLegend([
-        state.show.includes('circle') && { color: 'var(--c-v)', label: { es: 'imagen del círculo unitario', en: 'image of the unit circle' } },
+        state.show.includes('circle') && { color: 'var(--c-v)', label: n === 2 ? { es: 'imagen del círculo unitario', en: 'image of the unit circle' } : { es: 'imagen de la esfera unidad', en: 'image of the unit sphere' } },
         state.show.includes('axes') && { color: 'var(--c-w)', tex: '\\sigma_1\\mathbf{u}_1' },
         state.show.includes('axes') && { color: 'var(--c-eig)', tex: '\\sigma_2\\mathbf{u}_2' },
+        state.show.includes('axes') && n === 3 && { color: 'var(--c-img)', tex: '\\sigma_3\\mathbf{u}_3' },
         state.show.includes('rank1') && { color: 'var(--c-eig)', label: { es: 'imagen bajo A₁ (un segmento)', en: 'image under A₁ (a segment)' } },
       ]);
-      return { S: dec.S, dec, Af: an.Af, kappa };
+      return { S: dec.S, dec, Af: an.Af, kappa, n };
     }
 
-    return { render, snapshot: () => plane.snapshot(), togglePlay: () => anim.toggle(), onReset: () => { anim.pause(); plane.resetView(); } };
+    return { render, snapshot: () => view.snapshot(), togglePlay: () => anim.toggle(), onReset: () => { anim.pause(); viewN = 0; ctx.rerender(); } };
   },
 
   learn: {
@@ -248,33 +385,47 @@ createLab({
       title: { es: 'Semiejes 3 y 1', en: 'Semi-axes 3 and 1' },
       text: { es: 'Construye una matriz no diagonal cuya elipse tenga semiejes exactamente $3$ y $1$.', en: 'Build a non-diagonal matrix whose ellipse has semi-axes exactly $3$ and $1$.' },
       hint: { es: 'Necesitas $\\det A = \\pm 3$ y $\\lVert A\\rVert_F^2 = 10$. Por ejemplo $\\begin{bmatrix}a&b\\\\c&d\\end{bmatrix}$ con $a^2+b^2+c^2+d^2 = 10$.', en: 'You need $\\det A = \\pm 3$ and $\\lVert A\\rVert_F^2 = 10$, e.g. $\\begin{bmatrix}a&b\\\\c&d\\end{bmatrix}$ with $a^2+b^2+c^2+d^2 = 10$.' },
-      check: (s, d) => Math.abs(d.S[0] - 3) < 1e-6 && Math.abs(d.S[1] - 1) < 1e-6 && (Math.abs(d.Af[0][1]) > 1e-9 || Math.abs(d.Af[1][0]) > 1e-9),
+      setup: (store) => store.set({ n: 2 }),
+      check: (s, d) => d.n === 2 && Math.abs(d.S[0] - 3) < 1e-6 && Math.abs(d.S[1] - 1) < 1e-6 && (Math.abs(d.Af[0][1]) > 1e-9 || Math.abs(d.Af[1][0]) > 1e-9),
     },
     {
       id: 'kappa1',
       title: { es: 'Un círculo perfecto', en: 'A perfect circle' },
       text: { es: 'Consigue $\\kappa(A) = 1$ sin que $A$ sea múltiplo de la identidad.', en: 'Get $\\kappa(A) = 1$ without $A$ being a multiple of the identity.' },
       hint: { es: 'Una rotación (o reflexión) multiplicada por un escalar.', en: 'A rotation (or reflection) times a scalar.' },
-      check: (s, d) => Math.abs(d.kappa - 1) < 1e-9 && !(Math.abs(d.Af[0][1]) < 1e-12 && Math.abs(d.Af[1][0]) < 1e-12 && Math.abs(d.Af[0][0] - d.Af[1][1]) < 1e-12),
+      setup: (store) => store.set({ n: 2 }),
+      check: (s, d) => d.n === 2 && Math.abs(d.kappa - 1) < 1e-9 && !(Math.abs(d.Af[0][1]) < 1e-12 && Math.abs(d.Af[1][0]) < 1e-12 && Math.abs(d.Af[0][0] - d.Af[1][1]) < 1e-12),
     },
     {
       id: 'segment',
       title: { es: 'Una elipse aplastada', en: 'A squashed ellipse' },
       text: { es: 'Construye una matriz de rango 1 con $\\sigma_1 = 5$.', en: 'Build a rank-1 matrix with $\\sigma_1 = 5$.' },
       hint: { es: 'Columnas paralelas; por ejemplo, $\\sigma_1^2$ es la suma de los cuadrados de las entradas cuando el rango es 1.', en: 'Parallel columns; for instance, $\\sigma_1^2$ is the sum of the squares of the entries when the rank is 1.' },
-      check: (s, d) => d.dec.rank === 1 && Math.abs(d.S[0] - 5) < 1e-6,
+      setup: (store) => store.set({ n: 2 }),
+      check: (s, d) => d.n === 2 && d.dec.rank === 1 && Math.abs(d.S[0] - 5) < 1e-6,
     },
     {
       id: 'normal',
       title: { es: 'Singulares = |propios|', en: 'Singular = |eigen|' },
       text: { es: 'Encuentra $A$ no simétrica con $A^{\\mathsf T}A = AA^{\\mathsf T}$ (así $\\sigma_i = |\\lambda_i|$).', en: 'Find a non-symmetric $A$ with $A^{\\mathsf T}A = AA^{\\mathsf T}$ (so that $\\sigma_i = |\\lambda_i|$).' },
       hint: { es: 'Prueba con $\\begin{bmatrix}a & -b\\\\ b & a\\end{bmatrix}$, $b\\neq0$.', en: 'Try $\\begin{bmatrix}a & -b\\\\ b & a\\end{bmatrix}$, $b\\neq0$.' },
+      setup: (store) => store.set({ n: 2 }),
       check: (s, d) => {
+        if (d.n !== 2) return false;
         const a = d.Af, at = L.transpose(a);
         const x = L.mulFloat(at, a), y = L.mulFloat(a, at);
         const normal = x.every((row, i) => row.every((v, j) => Math.abs(v - y[i][j]) < 1e-9));
         return normal && Math.abs(a[0][1] - a[1][0]) > 1e-9;
       },
+    },
+    {
+      id: 's321',
+      title: { es: 'Elipsoide 3, 2, 1', en: 'Ellipsoid 3, 2, 1' },
+      text: { es: 'En $3\\times 3$, construye una matriz no diagonal cuyos valores singulares sean exactamente $3$, $2$ y $1$.', en: 'In $3\\times 3$, build a non-diagonal matrix whose singular values are exactly $3$, $2$ and $1$.' },
+      hint: { es: 'Los valores singulares no cambian al multiplicar por una matriz ortogonal: prueba a permutar las filas de $\\operatorname{diag}(3, 2, 1)$.', en: 'Singular values do not change when multiplying by an orthogonal matrix: try permuting the rows of $\\operatorname{diag}(3, 2, 1)$.' },
+      setup: (store) => store.set({ n: 3, B: M([[1, 0, 0], [0, 1, 0], [0, 0, 1]]), t: 3 }),
+      check: (s, d) => d.n === 3 && [3, 2, 1].every((x, i) => Math.abs(d.S[i] - x) < 1e-6)
+        && d.Af.some((row, i) => row.some((x, j) => i !== j && Math.abs(x) > 1e-9)),
     },
   ],
 });

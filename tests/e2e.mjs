@@ -409,6 +409,21 @@ await check('orthogonality: cross product, area and signed triple product are ex
   await context.close();
 });
 
+await check('orthogonality: a hidden irrational w keeps u × v exact; u = 0 has kernel ℝ³', async () => {
+  let { page, context, errors } = await openPage(`ortogonalidad.html?mode=cross&cu=1,0,0&cv=0,1,1&cw=${encodeURIComponent('√2')},0,1&cshow=par`);
+  let tex = (await page.locator('.panel annotation').allTextContents()).join(' | ');
+  assert.match(tex, /\\rVert = \\sqrt\{2\} = /, 'area stays √2');
+  assert.ok(!/1\.414/.test(tex), 'no decimal approximation');
+  assert.deepEqual(errors, []);
+  await context.close();
+  ({ page, context, errors } = await openPage('ortogonalidad.html?mode=cross&cu=0,0,0'));
+  const text = await page.locator('.panel').innerText();
+  assert.match(text, /su núcleo es todo ℝ³/);
+  assert.ok(!/su núcleo es la recta de u/.test(text));
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
 await check('app shell: sidebar lists every app, collapses and remembers it', async () => {
   const { page, context, errors } = await openPage('determinantes.html');
   assert.equal(await page.locator('.sidebar .navitem').count(), MODULES.length);

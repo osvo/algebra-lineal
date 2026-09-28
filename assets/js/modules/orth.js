@@ -391,17 +391,24 @@ createLab({
 
     // --- Cross product --------------------------------------------------------------
     function renderCross(state) {
-      const { F, M: rows } = L.fieldMatrix([state.cu, state.cv, state.cw]);
-      const [u, v, w] = rows;
-      const c = [
-        F.sub(F.mul(u[1], v[2]), F.mul(u[2], v[1])),
-        F.sub(F.mul(u[2], v[0]), F.mul(u[0], v[2])),
-        F.sub(F.mul(u[0], v[1]), F.mul(u[1], v[0])),
+      const crossIn = (a, b, G) => [
+        G.sub(G.mul(a[1], b[2]), G.mul(a[2], b[1])),
+        G.sub(G.mul(a[2], b[0]), G.mul(a[0], b[2])),
+        G.sub(G.mul(a[0], b[1]), G.mul(a[1], b[0])),
       ];
+      // u × v lives in the field of u and v alone, so a hidden irrational w cannot make it inexact.
+      const { F, M: [u, v] } = L.fieldMatrix([state.cu, state.cv]);
+      const c = crossIn(u, v, F);
       const cf = c.map((x) => F.toNumber(x));
-      const uf = u.map((x) => F.toNumber(x)), vf = v.map((x) => F.toNumber(x)), wf = w.map((x) => F.toNumber(x));
-      const triple = L.dot(c, w, F);
+      const uf = u.map((x) => F.toNumber(x)), vf = v.map((x) => F.toNumber(x)), wf = state.cw.map((e) => e.x);
       const showW = state.cshow.includes('w');
+      // The triple product needs a common field for u, v and w.
+      let triple = null, G = F;
+      if (showW) {
+        const all = L.fieldMatrix([state.cu, state.cv, state.cw]);
+        G = all.F;
+        triple = L.dot(crossIn(all.M[0], all.M[1], G), all.M[2], G);
+      }
       const sc = views.scene;
       if (sc) {
         sc.clear();
@@ -410,7 +417,7 @@ createLab({
           sc.planeSpan(center, uf.map((x) => x / 2), vf.map((x) => x / 2), 'det', { size: 1, opacity: 0.28, edges: true });
         }
         if (showW) {
-          const vol = F.toNumber(triple);
+          const vol = G.toNumber(triple);
           sc.parallelepiped([0, 1, 2].map((i) => [uf[i], vf[i], wf[i]]), Math.abs(vol) < 1e-12 ? 'muted' : vol < 0 ? 'detNeg' : 'k', { opacity: 0.07, edgeOpacity: 0.45 });
           sc.arrow([0, 0, 0], wf, 'k', { radius: 0.03 });
           sc.label(wf, '\\mathbf{w}', 'k', { tex: true, offset: [12, -10] });
@@ -437,10 +444,10 @@ createLab({
       const cc = L.dot(c, c, F);
       const normTex = F === RationalField ? (() => { const r = sqrtRational(cc); return r ? texRationalSqrt(r.coef, r.m) : `\\sqrt{${texValue(cc)}}`; })() : fmtDecimal(Math.sqrt(F.toNumber(cc)), 4);
       setR(2, { es: 'Área', en: 'Area' },
-        `\\lVert\\mathbf{u}\\times\\mathbf{v}\\rVert = \\sqrt{${texValue(cc)}} = ${normTex} = \\lVert\\mathbf{u}\\rVert\\,\\lVert\\mathbf{v}\\rVert\\sin\\theta`,
+        `\\lVert\\mathbf{u}\\times\\mathbf{v}\\rVert = ${[...new Set([`\\sqrt{${texValue(cc)}}`, normTex])].join(' = ')} = \\lVert\\mathbf{u}\\rVert\\,\\lVert\\mathbf{v}\\rVert\\sin\\theta`,
         Math.abs(F.toNumber(cc)) < 1e-12 ? { es: 'u y v son paralelos: el paralelogramo se reduce a un segmento y u × v = 0.', en: 'u and v are parallel: the parallelogram collapses to a segment and u × v = 0.' } : { es: 'Es el área del paralelogramo generado por u y v.', en: 'It is the area of the parallelogram spanned by u and v.' });
       if (showW) {
-        const vol = F.toNumber(triple);
+        const vol = G.toNumber(triple);
         setR(3, { es: 'Producto mixto', en: 'Triple product' },
           `(\\mathbf{u}\\times\\mathbf{v})\\cdot\\mathbf{w} = \\det[\\,\\mathbf{u}\\;\\mathbf{v}\\;\\mathbf{w}\\,] = ${texValue(triple)}`,
           Math.abs(vol) < 1e-12 ? { es: 'u, v y w son coplanares: volumen 0.', en: 'u, v and w are coplanar: volume 0.' }
@@ -452,14 +459,16 @@ createLab({
       const Z = F.zero;
       const Ux = [[Z, F.neg(u[2]), u[1]], [u[2], Z, F.neg(u[0])], [F.neg(u[1]), u[0], Z]];
       setR(5, { es: 'Como matriz', en: 'As a matrix' }, `\\mathbf{u}\\times\\mathbf{v} = [\\mathbf{u}]_\\times\\,\\mathbf{v},\\qquad [\\mathbf{u}]_\\times = ${texMatrix(Ux)}`,
-        { es: 'Es antisimétrica ([u]ₓᵀ = −[u]ₓ) y su núcleo es la recta de u. Aparece en la fórmula de Rodrigues de las rotaciones.', en: 'It is skew-symmetric ([u]ₓᵀ = −[u]ₓ) and its kernel is the line of u. It appears in Rodrigues’ rotation formula.' });
+        u.every((x) => F.isZero(x))
+          ? { es: 'Con u = 0, [u]ₓ es la matriz nula: su núcleo es todo ℝ³ y u × v = 0 para todo v.', en: 'With u = 0, [u]ₓ is the zero matrix: its kernel is all of ℝ³ and u × v = 0 for every v.' }
+          : { es: 'Es antisimétrica ([u]ₓᵀ = −[u]ₓ) y su núcleo es la recta de u. Aparece en la fórmula de Rodrigues de las rotaciones.', en: 'It is skew-symmetric ([u]ₓᵀ = −[u]ₓ) and its kernel is the line of u. It appears in Rodrigues’ rotation formula.' });
       rs[6].show(false);
       ctx.setLegend([
         { color: 'var(--c-i)', tex: '\\mathbf{u}' }, { color: 'var(--c-j)', tex: '\\mathbf{v}' },
         { color: 'var(--c-v)', tex: '\\mathbf{u}\\times\\mathbf{v}' },
         state.cshow.includes('par') && { color: 'var(--c-det)', kind: 'area', label: { es: 'paralelogramo (área = ‖u × v‖)', en: 'parallelogram (area = ‖u × v‖)' } },
         showW && { color: 'var(--c-k)', tex: '\\mathbf{w}' },
-        showW && { color: F.toNumber(triple) < 0 ? 'var(--c-det-neg)' : 'var(--c-k)', kind: 'area', label: { es: 'paralelepípedo (volumen = |det[u v w]|)', en: 'parallelepiped (volume = |det[u v w]|)' } },
+        showW && { color: G.toNumber(triple) < 0 ? 'var(--c-det-neg)' : 'var(--c-k)', kind: 'area', label: { es: 'paralelepípedo (volumen = |det[u v w]|)', en: 'parallelepiped (volume = |det[u v w]|)' } },
       ]);
       return { cross: c, F, triple };
     }

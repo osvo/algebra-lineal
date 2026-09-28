@@ -343,6 +343,87 @@ await check('non-square: the four subspaces are orthogonal pairs', async () => {
   await context.close();
 });
 
+await check('3D views: keyboard selects a point and moves it; brackets return to the camera', async () => {
+  const { page, context, errors } = await openPage('transformaciones_3D.html?A=2,0,0;0,1,0;0,0,1');
+  const view = page.locator('.view--3d').first();
+  await view.focus();
+  await page.keyboard.press(']');
+  assert.match(await view.locator('.view__hint').innerText(), /Punto 1 de 3/);
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Shift+ArrowRight');
+  await page.keyboard.press('PageUp');
+  await page.waitForTimeout(150);
+  const inputs = page.locator('.panel .matrix input');
+  assert.equal(await inputs.nth(0).inputValue(), '3.1', 'a₁₁: 2 + 0.1 + 1');
+  assert.equal(await inputs.nth(6).inputValue(), '0.1', 'a₃₁: PageUp moves z');
+  await page.keyboard.press('[');
+  await page.keyboard.press('ArrowLeft');
+  await page.waitForTimeout(150);
+  assert.equal(await inputs.nth(0).inputValue(), '3.1', 'the camera turns without editing A');
+  assert.match(await view.getAttribute('aria-label'), /corchetes/);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+await check('3D labels keep their offset (CSS2DRenderer owns transform)', async () => {
+  const { page, context, errors } = await openPage('transformaciones_3D.html');
+  const translate = await page.locator('.label3d').first().evaluate((el) => el.style.translate);
+  assert.match(translate, /px/);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+await check('3D: Jordan form with a single 3×3 block is exact', async () => {
+  const { page, context, errors } = await openPage('transformaciones_3D.html?A=1,1,1;-1,3,0;0,0,2');
+  const tex = (await page.locator('.panel annotation').allTextContents()).join(' | ');
+  assert.match(tex, /J = \\begin\{bmatrix\} 2 & 1 & 0 \\\\ 0 & 2 & 1 \\\\ 0 & 0 & 2 \\end\{bmatrix\}/);
+  assert.match(await page.locator('.panel').innerText(), /un bloque de Jordan de tamaño 3/);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+await check('SVD 3×3: exact singular values, 3D view and |det A| = σ₁σ₂σ₃', async () => {
+  const { page, context, errors } = await openPage('svd.html?n=3');
+  const tex = (await page.locator('.panel annotation').allTextContents()).join(' | ');
+  assert.match(tex, /\\sigma_\{1\} = \\sqrt\{9\} = 3,\\qquad \\sigma_\{2\} = \\sqrt\{4\} = 2,\\qquad \\sigma_\{3\} = \\sqrt\{1\} = 1/);
+  assert.match(tex, /\|\\det A\| = 6/);
+  assert.equal(await page.locator('.stage .view--3d').count(), 1);
+  await page.locator('.panel .seg').first().locator('button').first().click();
+  await page.waitForTimeout(300);
+  assert.equal(await page.locator('.stage .view--3d').count(), 0, 'back to 2×2 frees the 3D view');
+  assert.equal(await page.locator('.stage canvas').count(), 1);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+await check('orthogonality: cross product, area and signed triple product are exact', async () => {
+  const { page, context, errors } = await openPage('ortogonalidad.html?mode=cross&cu=2,1,0&cv=0,3,0&cw=1,1,-1');
+  const tex = (await page.locator('.panel annotation').allTextContents()).join(' | ');
+  assert.match(tex, /\\htmlClass\{c-v\}\{\\begin\{bmatrix\} 0 \\\\ 0 \\\\ 6 \\end\{bmatrix\}\}/, 'u × v = (0, 0, 6)');
+  assert.match(tex, /\(\\mathbf\{u\}\\times\\mathbf\{v\}\)\\cdot\\mathbf\{u\} = 0,/);
+  assert.match(tex, /\\sqrt\{36\} = 6/);
+  assert.match(tex, /\\det\[\\,\\mathbf\{u\}\\;\\mathbf\{v\}\\;\\mathbf\{w\}\\,\] = -6/);
+  assert.match(await page.locator('.panel').innerText(), /negativo/);
+  assert.equal(await page.locator('.stage .view--3d').count(), 1);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+await check('orthogonality: a hidden irrational w keeps u × v exact; u = 0 has kernel ℝ³', async () => {
+  let { page, context, errors } = await openPage(`ortogonalidad.html?mode=cross&cu=1,0,0&cv=0,1,1&cw=${encodeURIComponent('√2')},0,1&cshow=par`);
+  let tex = (await page.locator('.panel annotation').allTextContents()).join(' | ');
+  assert.match(tex, /\\rVert = \\sqrt\{2\} = /, 'area stays √2');
+  assert.ok(!/1\.414/.test(tex), 'no decimal approximation');
+  assert.deepEqual(errors, []);
+  await context.close();
+  ({ page, context, errors } = await openPage('ortogonalidad.html?mode=cross&cu=0,0,0'));
+  const text = await page.locator('.panel').innerText();
+  assert.match(text, /su núcleo es todo ℝ³/);
+  assert.ok(!/su núcleo es la recta de u/.test(text));
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
 await check('app shell: sidebar lists every app, collapses and remembers it', async () => {
   const { page, context, errors } = await openPage('determinantes.html');
   assert.equal(await page.locator('.sidebar .navitem').count(), MODULES.length);

@@ -37,7 +37,7 @@ export const MODULES = [
     },
   },
   {
-    id: 't3d', file: 'transformaciones_3D.html', chapter: 'transform', challenges: 4,
+    id: 't3d', file: 'transformaciones_3D.html', chapter: 'transform', challenges: 5,
     title: { es: 'Transformaciones 3D', en: '3D transformations' },
     tag: { es: 'Espacio', en: 'Space' },
     blurb: {
@@ -91,12 +91,12 @@ export const MODULES = [
     },
   },
   {
-    id: 'orth', file: 'ortogonalidad.html', chapter: 'geometry', challenges: 4,
+    id: 'orth', file: 'ortogonalidad.html', chapter: 'geometry', challenges: 5,
     title: { es: 'Ortogonalidad', en: 'Orthogonality' },
     tag: { es: 'Proyección', en: 'Projection' },
     blurb: {
-      es: 'Producto punto y proyecciones, Gram–Schmidt y mínimos cuadrados como proyección.',
-      en: 'Dot product and projections, Gram–Schmidt, and least squares as a projection.',
+      es: 'Producto punto y proyecciones, Gram–Schmidt, mínimos cuadrados como proyección y producto cruz.',
+      en: 'Dot product and projections, Gram–Schmidt, least squares as a projection, and the cross product.',
     },
   },
   {
@@ -109,13 +109,13 @@ export const MODULES = [
     },
   },
   {
-    id: 'svd', file: 'svd.html', chapter: 'geometry', challenges: 4,
+    id: 'svd', file: 'svd.html', chapter: 'geometry', challenges: 5,
     title: { es: 'Descomposición en valores singulares', en: 'Singular value decomposition' },
     short: { es: 'SVD', en: 'SVD' },
     tag: { es: 'Factorización', en: 'Factorization' },
     blurb: {
-      es: 'Toda matriz lleva el círculo unitario a una elipse: A = UΣVᵀ como rotación, estiramiento y rotación.',
-      en: 'Every matrix maps the unit circle to an ellipse: A = UΣVᵀ as rotate, stretch, rotate.',
+      es: 'Toda matriz lleva el círculo (o la esfera) unidad a una elipse (o un elipsoide): A = UΣVᵀ como rotación, estiramiento y rotación.',
+      en: 'Every matrix maps the unit circle (or sphere) to an ellipse (or ellipsoid): A = UΣVᵀ as rotate, stretch, rotate.',
     },
   },
   {

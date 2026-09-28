@@ -19,7 +19,11 @@ createLab({
     en: 'The dot product measures how much of one vector points along another. From it come projections, orthonormal bases and the best possible approximation when a system has no solution.',
   },
   state: {
-    mode: { def: 'dot', codec: codec.enum(['dot', 'gs', 'ls']) },
+    mode: { def: 'dot', codec: codec.enum(['dot', 'gs', 'ls', 'cross']) },
+    cu: { def: V([1, 0, -2]), codec: codec.vector(3) },
+    cv: { def: V([0, 2, 2]), codec: codec.vector(3) },
+    cw: { def: V([0, 0, 2]), codec: codec.vector(3) },
+    cshow: { def: ['par', 'w'], codec: codec.flags(['par', 'w']) },
     u: { def: V([3, 1]), codec: codec.vector(2) },
     v: { def: V([1, 2]), codec: codec.vector(2) },
     W: { def: M([[1, 1, 0], [1, 0, 1], [0, 1, 1]]), codec: codec.matrix(3, 3) },
@@ -41,6 +45,7 @@ createLab({
         { value: 'dot', label: { es: 'Proyección', en: 'Projection' } },
         { value: 'gs', label: { es: 'Gram–Schmidt', en: 'Gram–Schmidt' } },
         { value: 'ls', label: { es: 'Mínimos cuadrados', en: 'Least squares' } },
+        { value: 'cross', label: { es: 'Producto cruz', en: 'Cross product' } },
       ],
       get: () => store.get('mode'), set: (mode) => { anim.pause(); store.set({ mode }); },
       label: { es: 'Modo', en: 'Mode' },
@@ -62,8 +67,16 @@ createLab({
     } });
     const delPt = button({ label: { es: 'Quitar punto', en: 'Remove point' }, iconName: 'minus', small: true, onClick: () => { const pts = store.get('pts'); if (pts.length > 2) store.set({ pts: pts.slice(0, -1) }); } });
     const lsBox = h('div', { class: 'card__body', style: { padding: 0 } }, modelSeg.el, h('div', { class: 'row' }, addPt, delPt));
+    const cuEd = vectorEditor({ n: 3, get: () => store.get('cu'), set: (cu) => store.set({ cu }), label: '\\mathbf{u} =', color: 'var(--c-i)' });
+    const cvEd = vectorEditor({ n: 3, get: () => store.get('cv'), set: (cv) => store.set({ cv }), label: '\\mathbf{v} =', color: 'var(--c-j)' });
+    const cwEd = vectorEditor({ n: 3, get: () => store.get('cw'), set: (cw) => store.set({ cw }), label: '\\mathbf{w} =', color: 'var(--c-k)' });
+    const crossChips = [
+      flagChip(store, 'cshow', 'par', { es: 'Paralelogramo', en: 'Parallelogram' }, 'var(--c-det)'),
+      flagChip(store, 'cshow', 'w', { es: 'Tercer vector w', en: 'Third vector w' }, 'var(--c-k)'),
+    ];
+    const crossBox = h('div', { class: 'card__body', style: { padding: 0 } }, h('div', { class: 'row', style: { gap: '14px' } }, cuEd.el, cvEd.el, cwEd.el), h('div', { class: 'chip-row' }, crossChips.map((c) => c.el)));
     const help = h('p');
-    const inputCard = card({ title: { es: 'Modo y datos', en: 'Mode and data' }, body: [modeSeg.el, dotBox, wEd.el, lsBox, help] });
+    const inputCard = card({ title: { es: 'Modo y datos', en: 'Mode and data' }, body: [modeSeg.el, dotBox, wEd.el, lsBox, crossBox, help] });
 
     const rs = Array.from({ length: 7 }, () => readout('', { block: true }));
     const resultsCard = card({ title: { es: 'Resultado exacto', en: 'Exact result' }, body: [h('div', { class: 'readouts' }, rs.map((x) => x.el))] });
@@ -101,6 +114,15 @@ createLab({
           }
         }
         pl.setDraw((g) => cur && (mode === 'dot' ? drawDot(g, cur) : drawData(g, cur)));
+      }
+      if (mode === 'cross') {
+        const sc = new Scene3D(ctx.addView(), { extent: 4, frustum: 10 });
+        views.scene = sc;
+        sc.onTheme = () => ctx.rerender();
+        const setVec = (key) => (p) => store.set({ [key]: p.map(entryFromNumber) });
+        sc.addHandle({ id: 'cu', color: 'i', get: () => store.get('cu').map((e) => e.x), set: setVec('cu') });
+        sc.addHandle({ id: 'cv', color: 'j', get: () => store.get('cv').map((e) => e.x), set: setVec('cv') });
+        sc.addHandle({ id: 'cw', color: 'k', visible: () => store.get('cshow').includes('w'), get: () => store.get('cw').map((e) => e.x), set: setVec('cw') });
       }
       if (mode === 'gs' || (mode === 'ls' && state.pts.length === 3)) {
         const sc = new Scene3D(ctx.addView(), mode === 'ls' ? { title: { es: 'ℝ³: b y el espacio columna', en: 'ℝ³: b and the column space' }, extent: 4, frustum: 11 } : { extent: 3, frustum: 8 });
@@ -367,21 +389,109 @@ createLab({
       return { coef: coeff, e2: e2 === null ? null : G.toNumber(e2), N };
     }
 
+    // --- Cross product --------------------------------------------------------------
+    function renderCross(state) {
+      const crossIn = (a, b, G) => [
+        G.sub(G.mul(a[1], b[2]), G.mul(a[2], b[1])),
+        G.sub(G.mul(a[2], b[0]), G.mul(a[0], b[2])),
+        G.sub(G.mul(a[0], b[1]), G.mul(a[1], b[0])),
+      ];
+      // u × v lives in the field of u and v alone, so a hidden irrational w cannot make it inexact.
+      const { F, M: [u, v] } = L.fieldMatrix([state.cu, state.cv]);
+      const c = crossIn(u, v, F);
+      const cf = c.map((x) => F.toNumber(x));
+      const uf = u.map((x) => F.toNumber(x)), vf = v.map((x) => F.toNumber(x)), wf = state.cw.map((e) => e.x);
+      const showW = state.cshow.includes('w');
+      // The triple product needs a common field for u, v and w.
+      let triple = null, G = F;
+      if (showW) {
+        const all = L.fieldMatrix([state.cu, state.cv, state.cw]);
+        G = all.F;
+        triple = L.dot(crossIn(all.M[0], all.M[1], G), all.M[2], G);
+      }
+      const sc = views.scene;
+      if (sc) {
+        sc.clear();
+        if (state.cshow.includes('par')) {
+          const center = uf.map((x, i) => (x + vf[i]) / 2);
+          sc.planeSpan(center, uf.map((x) => x / 2), vf.map((x) => x / 2), 'det', { size: 1, opacity: 0.28, edges: true });
+        }
+        if (showW) {
+          const vol = G.toNumber(triple);
+          sc.parallelepiped([0, 1, 2].map((i) => [uf[i], vf[i], wf[i]]), Math.abs(vol) < 1e-12 ? 'muted' : vol < 0 ? 'detNeg' : 'k', { opacity: 0.07, edgeOpacity: 0.45 });
+          sc.arrow([0, 0, 0], wf, 'k', { radius: 0.03 });
+          sc.label(wf, '\\mathbf{w}', 'k', { tex: true, offset: [12, -10] });
+        }
+        sc.arrow([0, 0, 0], uf, 'i');
+        sc.arrow([0, 0, 0], vf, 'j');
+        sc.label(uf, '\\mathbf{u}', 'i', { tex: true, offset: [12, -10] });
+        sc.label(vf, '\\mathbf{v}', 'j', { tex: true, offset: [12, -10] });
+        if (Math.hypot(...cf) > 1e-9) {
+          sc.arrow([0, 0, 0], cf, 'v', { radius: 0.05 });
+          const nc = Math.hypot(...cf);
+          sc.label(cf.map((x) => x * (1 + 0.55 / nc)), '\\mathbf{u}\\times\\mathbf{v}', 'v', { tex: true, size: 15 });
+        }
+        sc.syncHandles();
+        sc.requestRender();
+      }
+      const paren = (t) => (t.startsWith('-') ? `(${t})` : t);
+      const minor = (a, b, cc, d) => `${paren(texValue(a))}\\cdot${paren(texValue(b))} - ${paren(texValue(cc))}\\cdot${paren(texValue(d))}`;
+      setR(0, { es: 'Producto cruz', en: 'Cross product' },
+        `${cls('c-i', '\\mathbf{u}')}\\times${cls('c-j', '\\mathbf{v}')} = \\begin{vmatrix}\\hat{\\imath}&\\hat{\\jmath}&\\hat{k}\\\\ ${u.map(texValue).join('&')}\\\\ ${v.map(texValue).join('&')}\\end{vmatrix} = \\begin{bmatrix} ${minor(u[1], v[2], u[2], v[1])} \\\\ ${minor(u[2], v[0], u[0], v[2])} \\\\ ${minor(u[0], v[1], u[1], v[0])} \\end{bmatrix} = ${cls('c-v', texVector(c))}`);
+      setR(1, { es: 'Perpendicular a ambos', en: 'Perpendicular to both' },
+        `(\\mathbf{u}\\times\\mathbf{v})\\cdot\\mathbf{u} = ${texValue(L.dot(c, u, F))},\\qquad (\\mathbf{u}\\times\\mathbf{v})\\cdot\\mathbf{v} = ${texValue(L.dot(c, v, F))}`,
+        { es: 'Su sentido sigue la regla de la mano derecha: si los dedos van de u a v, el pulgar apunta a u × v. Por eso v × u = −(u × v).', en: 'Its direction follows the right-hand rule: if your fingers go from u to v, your thumb points along u × v. That is why v × u = −(u × v).' });
+      const cc = L.dot(c, c, F);
+      const normTex = F === RationalField ? (() => { const r = sqrtRational(cc); return r ? texRationalSqrt(r.coef, r.m) : `\\sqrt{${texValue(cc)}}`; })() : fmtDecimal(Math.sqrt(F.toNumber(cc)), 4);
+      setR(2, { es: 'Área', en: 'Area' },
+        `\\lVert\\mathbf{u}\\times\\mathbf{v}\\rVert = ${[...new Set([`\\sqrt{${texValue(cc)}}`, normTex])].join(' = ')} = \\lVert\\mathbf{u}\\rVert\\,\\lVert\\mathbf{v}\\rVert\\sin\\theta`,
+        Math.abs(F.toNumber(cc)) < 1e-12 ? { es: 'u y v son paralelos: el paralelogramo se reduce a un segmento y u × v = 0.', en: 'u and v are parallel: the parallelogram collapses to a segment and u × v = 0.' } : { es: 'Es el área del paralelogramo generado por u y v.', en: 'It is the area of the parallelogram spanned by u and v.' });
+      if (showW) {
+        const vol = G.toNumber(triple);
+        setR(3, { es: 'Producto mixto', en: 'Triple product' },
+          `(\\mathbf{u}\\times\\mathbf{v})\\cdot\\mathbf{w} = \\det[\\,\\mathbf{u}\\;\\mathbf{v}\\;\\mathbf{w}\\,] = ${texValue(triple)}`,
+          Math.abs(vol) < 1e-12 ? { es: 'u, v y w son coplanares: volumen 0.', en: 'u, v and w are coplanar: volume 0.' }
+            : { es: `Es el volumen con signo del paralelepípedo: ${vol > 0 ? 'positivo, porque w está del mismo lado que u × v' : 'negativo, porque w está al otro lado del plano de u y v'}.`, en: `It is the signed volume of the parallelepiped: ${vol > 0 ? 'positive, because w lies on the same side as u × v' : 'negative, because w lies on the other side of the plane of u and v'}.` });
+      } else rs[3].show(false);
+      setR(4, { es: 'Dualidad', en: 'Duality' },
+        `\\det[\\,\\mathbf{x}\\;\\mathbf{u}\\;\\mathbf{v}\\,] = ${cls('c-v', '(\\mathbf{u}\\times\\mathbf{v})')}\\cdot\\mathbf{x}\\quad\\text{${tr({ es: 'para todo', en: 'for every' })}}\\ \\mathbf{x}\\in\\mathbb{R}^3`,
+        { es: 'Con u y v fijos, x ↦ det[x u v] es lineal de ℝ³ en ℝ, así que es un producto punto con un único vector: ese vector es u × v.', en: 'With u and v fixed, x ↦ det[x u v] is linear from ℝ³ to ℝ, so it is a dot product with a unique vector: that vector is u × v.' });
+      const Z = F.zero;
+      const Ux = [[Z, F.neg(u[2]), u[1]], [u[2], Z, F.neg(u[0])], [F.neg(u[1]), u[0], Z]];
+      setR(5, { es: 'Como matriz', en: 'As a matrix' }, `\\mathbf{u}\\times\\mathbf{v} = [\\mathbf{u}]_\\times\\,\\mathbf{v},\\qquad [\\mathbf{u}]_\\times = ${texMatrix(Ux)}`,
+        u.every((x) => F.isZero(x))
+          ? { es: 'Con u = 0, [u]ₓ es la matriz nula: su núcleo es todo ℝ³ y u × v = 0 para todo v.', en: 'With u = 0, [u]ₓ is the zero matrix: its kernel is all of ℝ³ and u × v = 0 for every v.' }
+          : { es: 'Es antisimétrica ([u]ₓᵀ = −[u]ₓ) y su núcleo es la recta de u. Aparece en la fórmula de Rodrigues de las rotaciones.', en: 'It is skew-symmetric ([u]ₓᵀ = −[u]ₓ) and its kernel is the line of u. It appears in Rodrigues’ rotation formula.' });
+      rs[6].show(false);
+      ctx.setLegend([
+        { color: 'var(--c-i)', tex: '\\mathbf{u}' }, { color: 'var(--c-j)', tex: '\\mathbf{v}' },
+        { color: 'var(--c-v)', tex: '\\mathbf{u}\\times\\mathbf{v}' },
+        state.cshow.includes('par') && { color: 'var(--c-det)', kind: 'area', label: { es: 'paralelogramo (área = ‖u × v‖)', en: 'parallelogram (area = ‖u × v‖)' } },
+        showW && { color: 'var(--c-k)', tex: '\\mathbf{w}' },
+        showW && { color: G.toNumber(triple) < 0 ? 'var(--c-det-neg)' : 'var(--c-k)', kind: 'area', label: { es: 'paralelepípedo (volumen = |det[u v w]|)', en: 'parallelepiped (volume = |det[u v w]|)' } },
+      ]);
+      return { cross: c, F, triple };
+    }
+
     function render(state) {
       const key = `${state.mode}|${state.mode === 'ls' && state.pts.length === 3}`;
       if (key !== viewKey) { viewKey = key; buildViews(state); }
       modeSeg.update(); uEd.update(); vEd.update(); wEd.update(); modelSeg.update(); anim.update();
+      cuEd.update(); cvEd.update(); cwEd.update(); crossChips.forEach((c) => c.update());
       const mode = state.mode;
       dotBox.hidden = mode !== 'dot';
       wEd.el.hidden = mode !== 'gs';
       lsBox.hidden = mode !== 'ls';
+      crossBox.hidden = mode !== 'cross';
+      cwEd.el.hidden = !state.cshow.includes('w');
       ctx.bar.hidden = mode !== 'gs';
       setText(help, {
         dot: { es: 'Arrastra u y v. La flecha cian es la sombra de v sobre la recta de u.', en: 'Drag u and v. The cyan arrow is the shadow of v on the line of u.' },
         gs: { es: 'Arrastra v₁, v₂, v₃ en 3D y reproduce: cada vector pierde su componente sobre los anteriores y al final se normaliza.', en: 'Drag v₁, v₂, v₃ in 3D and press play: each vector loses its component along the previous ones and is finally normalized.' },
         ls: { es: 'Arrastra los puntos (o b en la vista 3D). La recta minimiza la suma de los cuadrados de los residuos verticales.', en: 'Drag the points (or b in the 3D view). The line minimizes the sum of the squares of the vertical residuals.' },
+        cross: { es: 'Arrastra u y v en 3D: u × v es perpendicular a ambos, su longitud es el área del paralelogramo y su sentido sigue la regla de la mano derecha.', en: 'Drag u and v in 3D: u × v is perpendicular to both, its length is the area of the parallelogram and its direction follows the right-hand rule.' },
       }[mode]);
-      const d = mode === 'dot' ? renderDot(state) : mode === 'gs' ? renderGS(state) : renderLS(state);
+      const d = mode === 'dot' ? renderDot(state) : mode === 'gs' ? renderGS(state) : mode === 'ls' ? renderLS(state) : renderCross(state);
       if (views.plane) views.plane.requestRender();
       return { mode, ...d };
     }
@@ -398,10 +508,12 @@ createLab({
     what: {
       es: `<p>El producto punto $\\mathbf{u}\\cdot\\mathbf{v} = \\sum u_iv_i$ tiene una lectura geométrica: $\\mathbf{u}\\cdot\\mathbf{v} = \\lVert\\mathbf{u}\\rVert\\,\\lVert\\mathbf{v}\\rVert\\cos\\theta$. En <em>Proyección</em>, la flecha cian es la sombra de $\\mathbf{v}$ sobre la recta de $\\mathbf{u}$; lo que sobra es perpendicular a $\\mathbf{u}$. Todos los valores son exactos: las normas aparecen como radicales simplificados.</p>
 <p><em>Gram–Schmidt</em> convierte tres vectores independientes en una base ortonormal: a cada $\\mathbf{v}_k$ se le resta su proyección sobre los $\\mathbf{w}$ anteriores (la flecha gris) y al final se divide cada $\\mathbf{w}_k$ por su norma.</p>
-<p>En <em>Mínimos cuadrados</em> los datos no están alineados, así que $A\\mathbf{x} = \\mathbf{b}$ no tiene solución. La mejor aproximación $\\hat{\\mathbf{x}}$ hace que $A\\hat{\\mathbf{x}}$ sea la <strong>proyección ortogonal de $\\mathbf{b}$ sobre el espacio columna</strong>. Con tres puntos puedes verlo en $\\mathbb{R}^3$: $\\mathbf{b}$, el plano de las combinaciones $c_0\\mathbf{a}_1 + c_1\\mathbf{a}_2$ y el residuo perpendicular. Arrastra $\\mathbf{b}$ allí y observa cómo se mueven los datos.</p>`,
+<p>En <em>Mínimos cuadrados</em> los datos no están alineados, así que $A\\mathbf{x} = \\mathbf{b}$ no tiene solución. La mejor aproximación $\\hat{\\mathbf{x}}$ hace que $A\\hat{\\mathbf{x}}$ sea la <strong>proyección ortogonal de $\\mathbf{b}$ sobre el espacio columna</strong>. Con tres puntos puedes verlo en $\\mathbb{R}^3$: $\\mathbf{b}$, el plano de las combinaciones $c_0\\mathbf{a}_1 + c_1\\mathbf{a}_2$ y el residuo perpendicular. Arrastra $\\mathbf{b}$ allí y observa cómo se mueven los datos.</p>
+<p>El <strong>producto cruz</strong> de $\\mathbf{u},\\mathbf{v}\\in\\mathbb{R}^3$ es el único vector $\\mathbf{u}\\times\\mathbf{v}$ tal que $\\det[\\,\\mathbf{x}\\;\\mathbf{u}\\;\\mathbf{v}\\,] = (\\mathbf{u}\\times\\mathbf{v})\\cdot\\mathbf{x}$ para todo $\\mathbf{x}$. De esa definición salen sus propiedades: es perpendicular a $\\mathbf{u}$ y a $\\mathbf{v}$, su longitud es el área del paralelogramo que generan y su sentido sigue la regla de la mano derecha.</p>`,
       en: `<p>The dot product $\\mathbf{u}\\cdot\\mathbf{v} = \\sum u_iv_i$ has a geometric reading: $\\mathbf{u}\\cdot\\mathbf{v} = \\lVert\\mathbf{u}\\rVert\\,\\lVert\\mathbf{v}\\rVert\\cos\\theta$. In <em>Projection</em>, the cyan arrow is the shadow of $\\mathbf{v}$ on the line of $\\mathbf{u}$; what is left over is perpendicular to $\\mathbf{u}$. Every value is exact: norms appear as simplified radicals.</p>
 <p><em>Gram–Schmidt</em> turns three independent vectors into an orthonormal basis: from each $\\mathbf{v}_k$ we subtract its projection onto the previous $\\mathbf{w}$’s (the grey arrow) and finally divide each $\\mathbf{w}_k$ by its norm.</p>
-<p>In <em>Least squares</em> the data are not aligned, so $A\\mathbf{x} = \\mathbf{b}$ has no solution. The best approximation $\\hat{\\mathbf{x}}$ makes $A\\hat{\\mathbf{x}}$ the <strong>orthogonal projection of $\\mathbf{b}$ onto the column space</strong>. With three points you can see it in $\\mathbb{R}^3$: $\\mathbf{b}$, the plane of combinations $c_0\\mathbf{a}_1 + c_1\\mathbf{a}_2$ and the perpendicular residual. Drag $\\mathbf{b}$ there and watch the data move.</p>`,
+<p>In <em>Least squares</em> the data are not aligned, so $A\\mathbf{x} = \\mathbf{b}$ has no solution. The best approximation $\\hat{\\mathbf{x}}$ makes $A\\hat{\\mathbf{x}}$ the <strong>orthogonal projection of $\\mathbf{b}$ onto the column space</strong>. With three points you can see it in $\\mathbb{R}^3$: $\\mathbf{b}$, the plane of combinations $c_0\\mathbf{a}_1 + c_1\\mathbf{a}_2$ and the perpendicular residual. Drag $\\mathbf{b}$ there and watch the data move.</p>
+<p>The <strong>cross product</strong> of $\\mathbf{u},\\mathbf{v}\\in\\mathbb{R}^3$ is the unique vector $\\mathbf{u}\\times\\mathbf{v}$ such that $\\det[\\,\\mathbf{x}\\;\\mathbf{u}\\;\\mathbf{v}\\,] = (\\mathbf{u}\\times\\mathbf{v})\\cdot\\mathbf{x}$ for every $\\mathbf{x}$. Its properties follow from that definition: it is perpendicular to $\\mathbf{u}$ and $\\mathbf{v}$, its length is the area of the parallelogram they span and its direction follows the right-hand rule.</p>`,
     },
     prompts: {
       es: [
@@ -410,6 +522,7 @@ createLab({
         'En «Gram–Schmidt», haz $\\mathbf{v}_3 = \\mathbf{v}_1 + \\mathbf{v}_2$. ¿Qué le pasa a $\\mathbf{w}_3$?',
         'En «Mínimos cuadrados», alinea los tres puntos. ¿Cuánto vale el residuo? ¿Dónde queda $\\mathbf{b}$ respecto del plano?',
         'Cambia al modelo $y = cx$. ¿Por qué ahora el espacio columna es una recta en $\\mathbb{R}^3$?',
+        'En «Producto cruz», haz $\\mathbf{v}$ paralelo a $\\mathbf{u}$. ¿Qué le pasa a $\\mathbf{u}\\times\\mathbf{v}$? Después mueve $\\mathbf{w}$ al otro lado del plano de $\\mathbf{u}$ y $\\mathbf{v}$: ¿qué signo toma el producto mixto?',
       ],
       en: [
         'In “Projection”, turn $\\mathbf{v}$ around the origin. When does $\\mathbf{u}\\cdot\\mathbf{v}$ change sign? What happens to the projection when the angle is obtuse?',
@@ -417,6 +530,7 @@ createLab({
         'In “Gram–Schmidt”, make $\\mathbf{v}_3 = \\mathbf{v}_1 + \\mathbf{v}_2$. What happens to $\\mathbf{w}_3$?',
         'In “Least squares”, line the three points up. What is the residual? Where is $\\mathbf{b}$ relative to the plane?',
         'Switch to the model $y = cx$. Why is the column space now a line in $\\mathbb{R}^3$?',
+        'In “Cross product”, make $\\mathbf{v}$ parallel to $\\mathbf{u}$. What happens to $\\mathbf{u}\\times\\mathbf{v}$? Then move $\\mathbf{w}$ to the other side of the plane of $\\mathbf{u}$ and $\\mathbf{v}$: what sign does the triple product take?',
       ],
     },
     formal: [
@@ -444,10 +558,26 @@ createLab({
           en: '<p>For $A\\in\\mathbb{R}^{m\\times n}$ and $\\mathbf{b}\\in\\mathbb{R}^m$, $\\hat{\\mathbf{x}}$ minimizes $\\lVert A\\mathbf{x}-\\mathbf{b}\\rVert$ if and only if $A^{\\mathsf T}(\\mathbf{b} - A\\hat{\\mathbf{x}}) = \\mathbf{0}$, i.e. if it solves the <strong>normal equations</strong> $A^{\\mathsf T}A\\hat{\\mathbf{x}} = A^{\\mathsf T}\\mathbf{b}$. The solution is unique if and only if the columns of $A$ are independent, and then $A\\hat{\\mathbf{x}} = A(A^{\\mathsf T}A)^{-1}A^{\\mathsf T}\\mathbf{b}$ is the orthogonal projection of $\\mathbf{b}$ onto $\\operatorname{Im}A$.</p>',
         },
       },
+      {
+        kind: 'definition',
+        title: { es: 'Producto cruz y producto mixto', en: 'Cross product and triple product' },
+        body: {
+          es: '<p>Para $\\mathbf{u},\\mathbf{v}\\in\\mathbb{R}^3$, la aplicación $\\mathbf{x}\\mapsto\\det[\\,\\mathbf{x}\\;\\mathbf{u}\\;\\mathbf{v}\\,]$ es lineal, así que existe un único $\\mathbf{p}$ con $\\det[\\,\\mathbf{x}\\;\\mathbf{u}\\;\\mathbf{v}\\,] = \\mathbf{p}\\cdot\\mathbf{x}$; se define $\\mathbf{u}\\times\\mathbf{v} = \\mathbf{p} = (u_2v_3-u_3v_2,\\ u_3v_1-u_1v_3,\\ u_1v_2-u_2v_1)$. Es bilineal y antisimétrico, $(\\mathbf{u}\\times\\mathbf{v})\\perp\\mathbf{u},\\mathbf{v}$, $\\lVert\\mathbf{u}\\times\\mathbf{v}\\rVert = \\lVert\\mathbf{u}\\rVert\\lVert\\mathbf{v}\\rVert\\sin\\theta$ (identidad de Lagrange: $\\lVert\\mathbf{u}\\times\\mathbf{v}\\rVert^2 = \\lVert\\mathbf{u}\\rVert^2\\lVert\\mathbf{v}\\rVert^2 - (\\mathbf{u}\\cdot\\mathbf{v})^2$), y $\\mathbf{u}\\times\\mathbf{v} = \\mathbf{0}$ si y solo si son paralelos. El producto mixto $(\\mathbf{u}\\times\\mathbf{v})\\cdot\\mathbf{w} = \\det[\\,\\mathbf{u}\\;\\mathbf{v}\\;\\mathbf{w}\\,]$ es el volumen con signo del paralelepípedo.</p>',
+          en: '<p>For $\\mathbf{u},\\mathbf{v}\\in\\mathbb{R}^3$ the map $\\mathbf{x}\\mapsto\\det[\\,\\mathbf{x}\\;\\mathbf{u}\\;\\mathbf{v}\\,]$ is linear, so there is a unique $\\mathbf{p}$ with $\\det[\\,\\mathbf{x}\\;\\mathbf{u}\\;\\mathbf{v}\\,] = \\mathbf{p}\\cdot\\mathbf{x}$; we define $\\mathbf{u}\\times\\mathbf{v} = \\mathbf{p} = (u_2v_3-u_3v_2,\\ u_3v_1-u_1v_3,\\ u_1v_2-u_2v_1)$. It is bilinear and antisymmetric, $(\\mathbf{u}\\times\\mathbf{v})\\perp\\mathbf{u},\\mathbf{v}$, $\\lVert\\mathbf{u}\\times\\mathbf{v}\\rVert = \\lVert\\mathbf{u}\\rVert\\lVert\\mathbf{v}\\rVert\\sin\\theta$ (Lagrange’s identity: $\\lVert\\mathbf{u}\\times\\mathbf{v}\\rVert^2 = \\lVert\\mathbf{u}\\rVert^2\\lVert\\mathbf{v}\\rVert^2 - (\\mathbf{u}\\cdot\\mathbf{v})^2$), and $\\mathbf{u}\\times\\mathbf{v} = \\mathbf{0}$ if and only if they are parallel. The triple product $(\\mathbf{u}\\times\\mathbf{v})\\cdot\\mathbf{w} = \\det[\\,\\mathbf{u}\\;\\mathbf{v}\\;\\mathbf{w}\\,]$ is the signed volume of the parallelepiped.</p>',
+        },
+      },
     ],
   },
 
   challenges: [
+    {
+      id: 'cross6',
+      title: { es: 'Un producto cruz vertical', en: 'A vertical cross product' },
+      text: { es: 'Con $\\mathbf{u} = (2, 1, 0)$ fijo, elige $\\mathbf{v}$ para que $\\mathbf{u}\\times\\mathbf{v} = (0, 0, 6)$.', en: 'With $\\mathbf{u} = (2, 1, 0)$ fixed, choose $\\mathbf{v}$ so that $\\mathbf{u}\\times\\mathbf{v} = (0, 0, 6)$.' },
+      hint: { es: '$\\mathbf{v}$ debe estar en el plano $z = 0$ (perpendicular a $(0,0,6)$) y el paralelogramo debe tener área $6$ con orientación positiva.', en: '$\\mathbf{v}$ must lie in the plane $z = 0$ (perpendicular to $(0,0,6)$) and the parallelogram must have area $6$ with positive orientation.' },
+      setup: (store) => store.set({ mode: 'cross', cu: V([2, 1, 0]), cv: V([0, 1, 2]) }),
+      check: (s, d) => s.mode === 'cross' && [2, 1, 0].every((x, i) => s.cu[i].x === x) && d.cross && [0, 0, 6].every((x, i) => Math.abs(d.F.toNumber(d.cross[i]) - x) < 1e-12),
+    },
     {
       id: 'perp',
       title: { es: 'Perpendiculares', en: 'Perpendicular' },

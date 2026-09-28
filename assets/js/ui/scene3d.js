@@ -41,9 +41,13 @@ export class Scene3D {
     container.classList.add('view', 'view--3d');
     container.tabIndex = 0;
     setAttr(container, 'aria-label', ariaLabel || {
-      es: 'Vista 3D interactiva. Arrastra para girar, rueda o pellizco para acercar, y arrastra los puntos marcados para moverlos.',
-      en: 'Interactive 3D view. Drag to rotate, wheel or pinch to zoom, and drag the marked points to move them.',
+      es: 'Vista 3D interactiva. Arrastra para girar, rueda o pellizco para acercar y arrastra los puntos marcados. Con el teclado: corchetes eligen la cámara o un punto, las flechas giran la cámara o mueven el punto en x e y, RePág y AvPág lo mueven en z, más y menos acercan, 0 restablece.',
+      en: 'Interactive 3D view. Drag to rotate, wheel or pinch to zoom and drag the marked points. Keyboard: brackets select the camera or a point, arrows turn the camera or move the point in x and y, Page Up and Page Down move it in z, plus and minus zoom, 0 resets.',
     });
+    this.selected = -1; // −1: the camera; otherwise the index of a visible handle
+    this.hint = h('div', { class: 'view__hint', hidden: true });
+    this.live = h('div', { class: 'sr-only', role: 'status', 'aria-live': 'polite' });
+    container.append(this.hint, this.live);
     this.extent = extent;
     this.frustum = frustum;
     this.showGrid = grid;
@@ -77,6 +81,7 @@ export class Scene3D {
     }
     this.buildTools();
     this.bindHandleEvents(); // before OrbitControls so we can disable it on handle hits
+    this.bindKeyboard();
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = false;
     this.controls.screenSpacePanning = true;
@@ -316,14 +321,14 @@ export class Scene3D {
   }
 
   /** Image of the unit cube [0,1]³ under the 3×3 matrix m (rows). */
-  parallelepiped(m, colorName, { opacity = 0.25, group = this.dynamic } = {}) {
+  parallelepiped(m, colorName, { opacity = 0.25, edgeOpacity = 1, group = this.dynamic } = {}) {
     const geo = new THREE.BoxGeometry(1, 1, 1);
     geo.translate(0.5, 0.5, 0.5);
     const mat4 = matrix4(m);
     const col = this.color(colorName);
     const g = new THREE.Group();
     g.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity, side: THREE.DoubleSide, depthWrite: false })));
-    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: col }));
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: col, transparent: edgeOpacity < 1, opacity: edgeOpacity }));
     g.add(edges);
     g.matrixAutoUpdate = false;
     g.matrix.copy(mat4);
@@ -347,7 +352,8 @@ export class Scene3D {
     div.className = 'label3d';
     div.style.color = color;
     div.style.fontSize = `${size}px`;
-    div.style.transform = `translate(${offset[0]}px, ${offset[1]}px)`;
+    // CSS2DRenderer owns style.transform, so the offset goes in the independent `translate` property.
+    div.style.translate = `${offset[0]}px ${offset[1]}px`;
     if (tex) div.innerHTML = texToHTML(text); else div.textContent = text;
     const obj = new CSS2DObject(div);
     obj.position.set(...p);
@@ -397,10 +403,85 @@ export class Scene3D {
   }
 
   updateHandleScale() {
-    // Constant on-screen size: world size proportional to 1/zoom.
+    // Constant on-screen size: world size proportional to 1/zoom. The handle chosen
+    // with the keyboard is drawn larger while the view has the focus.
     const worldPerPx = (this.camera.right - this.camera.left) / Math.max(1, this.w || 1) / (this.camera.zoom || 1);
     const r = 6 * worldPerPx;
-    for (const hd of this.handles) hd.mesh.scale.setScalar(r);
+    const sel = document.activeElement === this.container && this.selected >= 0 ? this.visibleHandles()[this.selected] : null;
+    for (const hd of this.handles) hd.mesh.scale.setScalar(hd === sel ? r * 1.8 : r);
+  }
+
+  visibleHandles() { return this.handles.filter((hd) => hd.visible()); }
+
+  // -------------------------------------------------------------------------
+  // Keyboard
+  // -------------------------------------------------------------------------
+
+  bindKeyboard() {
+    const fmt = (x) => String(Math.round(x * 100) / 100).replace('-', '−');
+    const describe = () => {
+      const hs = this.visibleHandles();
+      if (this.selected < 0 || !hs.length) {
+        return tr({ es: 'Cámara: las flechas giran la vista · [ ] elige un punto', en: 'Camera: arrows turn the view · [ ] picks a point' });
+      }
+      const p = hs[this.selected].get();
+      return tr({ es: `Punto ${this.selected + 1} de ${hs.length}: (${p.map(fmt).join(', ')}) · flechas x, y · RePág/AvPág z · Mayús ×10`, en: `Point ${this.selected + 1} of ${hs.length}: (${p.map(fmt).join(', ')}) · arrows x, y · PgUp/PgDn z · Shift ×10` });
+    };
+    let hintTimer = null;
+    const announce = () => {
+      const text = describe();
+      this.hint.textContent = text;
+      this.hint.hidden = false;
+      this.live.textContent = text;
+      clearTimeout(hintTimer);
+      hintTimer = setTimeout(() => { this.hint.hidden = true; }, 2600);
+    };
+    this.container.addEventListener('focus', () => { this.updateHandleScale(); this.requestRender(); if (this.container.matches(':focus-visible')) announce(); });
+    this.container.addEventListener('blur', () => { this.updateHandleScale(); this.requestRender(); this.hint.hidden = true; });
+    this.container.addEventListener('keydown', (e) => {
+      if (e.target !== this.container || e.ctrlKey || e.metaKey || e.altKey) return;
+      const hs = this.visibleHandles();
+      if (this.selected >= hs.length) this.selected = hs.length - 1;
+      const done = () => { e.preventDefault(); this.updateHandleScale(); this.requestRender(); };
+      if (e.key === '+' || e.key === '=') { this.camera.zoom = Math.min(8, this.camera.zoom * 1.2); this.camera.updateProjectionMatrix(); done(); return; }
+      if (e.key === '-' || e.key === '_') { this.camera.zoom = Math.max(0.2, this.camera.zoom / 1.2); this.camera.updateProjectionMatrix(); done(); return; }
+      if (e.key === '0') { this.setView('iso'); done(); return; }
+      if (e.key === ']' || e.key === '[') {
+        const n = hs.length + 1; // the camera plus every handle
+        this.selected = ((this.selected + 1 + (e.key === ']' ? 1 : n - 1)) % n) - 1;
+        done(); announce(); return;
+      }
+      const arrows = { ArrowLeft: [-1, 0, 0], ArrowRight: [1, 0, 0], ArrowUp: [0, 1, 0], ArrowDown: [0, -1, 0], PageUp: [0, 0, 1], PageDown: [0, 0, -1] };
+      const d = arrows[e.key];
+      if (!d) return;
+      if (this.selected < 0 || !hs.length) {
+        if (d[2]) return;
+        this.orbitBy(d[0] * (e.shiftKey ? 45 : 15), d[1] * (e.shiftKey ? 30 : 10));
+        done(); return;
+      }
+      const hd = hs[this.selected];
+      const step = e.shiftKey ? 1 : 0.1;
+      const p = hd.get().slice();
+      for (let k = 0; k < 3; k++) p[k] = Math.round((p[k] + d[k] * step) * 1e6) / 1e6;
+      if (hd.plane === 'xy') p[2] = 0;
+      hd.set(p);
+      done(); announce();
+    });
+  }
+
+  /** Turns the camera around the target: azimuth about z and elevation, in degrees. */
+  orbitBy(dAz, dEl) {
+    const target = this.controls ? this.controls.target : new THREE.Vector3();
+    const off = this.camera.position.clone().sub(target);
+    const r = off.length();
+    let az = Math.atan2(off.y, off.x) + (dAz * Math.PI) / 180;
+    let el = Math.asin(Math.max(-1, Math.min(1, off.z / r))) + (dEl * Math.PI) / 180;
+    el = Math.max(-1.45, Math.min(1.45, el));
+    this.camera.position.set(target.x + r * Math.cos(el) * Math.cos(az), target.y + r * Math.cos(el) * Math.sin(az), target.z + r * Math.sin(el));
+    this.camera.up.set(0, 0, 1);
+    this.camera.lookAt(target);
+    if (this.controls) this.controls.update();
+    this.camera.updateProjectionMatrix();
   }
 
   snap(v) {
@@ -432,6 +513,7 @@ export class Scene3D {
       const normal = hd.plane === 'xy' ? new THREE.Vector3(0, 0, 1) : this.camera.getWorldDirection(new THREE.Vector3()).negate();
       plane.setFromNormalAndCoplanarPoint(normal, pos);
       drag = { hd, pointerId: e.pointerId };
+      this.selected = this.visibleHandles().indexOf(hd);
       this.controls.enabled = false;
       el.setPointerCapture(e.pointerId);
       e.stopImmediatePropagation();

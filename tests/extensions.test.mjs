@@ -106,3 +106,39 @@ test('interpolation: Vandermonde determinant and the unique interpolant', () => 
   assert.equal(sol.status, 'unique');
   assert.deepEqual(sol.particular.map((x) => x.toString()), ['-1', '-1/6', '3/2', '-1/3']);
 });
+
+test('Jordan form: exact chains, block structure and A P = P J', async () => {
+  const { jordanForm } = await import('../assets/js/core/jordan.js');
+  const sizes = (r) => r.blocks.map((b) => b.size).join('+');
+  const cases = [
+    [[[2, 1, 0], [0, 2, 1], [0, 0, 2]], 'jordan', '3'],
+    [[[1, 1, 1], [-1, 3, 0], [0, 0, 2]], 'jordan', '3'],
+    [[[3, 1, 0], [-1, 1, 0], [0, 0, 2]], 'jordan', '2+1'],
+    [[[1, 1, 0], [1, 0, 0], [0, 0, 3]], 'diag', '1+1+1'],
+    [[[4, 0, 0], [0, 4, 0], [0, 0, 4]], 'diag', '1+1+1'],
+    [[[1, 1], [0, 1]], 'jordan', '2'],
+  ];
+  for (const [m, kind, s] of cases) {
+    const r = jordanForm({ exact: m.map((row) => row.map((x) => q(x))), float: m });
+    assert.ok(r, `decomposition of ${JSON.stringify(m)}`);
+    assert.equal(r.kind, kind);
+    assert.equal(r.exact, true);
+    assert.equal(sizes(r), s);
+    // P J P⁻¹ = A exactly.
+    const G = r.F;
+    const back = L.matMul(L.matMul(r.P, r.J, G), r.Pinv, G);
+    m.forEach((row, i) => row.forEach((x, j) => near(G.toNumber(back[i][j]), x, 1e-12)));
+  }
+  // Irrational entries: numerical path, same structure (√2 · J₃).
+  const s2 = Math.SQRT2;
+  const num = jordanForm({ exact: null, float: [[s2, 1, 0], [0, s2, 1], [0, 0, s2]] });
+  assert.equal(num.kind, 'jordan');
+  assert.equal(sizes(num), '3');
+  // Complex pair: real Jordan form with a rotation-scaling block.
+  const rot = [[1, -2, 0], [2, 1, 0], [0, 0, 3]];
+  const c = jordanForm({ exact: rot.map((row) => row.map((x) => q(x))), float: rot });
+  assert.equal(c.kind, 'complex');
+  const back = L.mulFloat(L.mulFloat(c.P, c.J), c.Pinv);
+  rot.forEach((row, i) => row.forEach((x, j) => near(back[i][j], x, 1e-9)));
+  assert.equal(Math.abs(c.J[1][2]), 2);
+});

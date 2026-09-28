@@ -4,20 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Laboratorio de Álgebra Lineal · Las matrices también se mueven</title>
-<meta name="description" content="Laboratorio interactivo y bilingüe para aprender álgebra lineal de forma visual y exacta: transformaciones, sistemas, cambio de base, valores propios, ortogonalidad y SVD.">
+<meta name="description" content="Laboratorio interactivo y bilingüe para aprender álgebra lineal de forma visual y exacta: combinaciones lineales, transformaciones, determinantes, sistemas, cambio de base, valores propios, ortogonalidad, formas cuadráticas, SVD y espacios de polinomios.">
 <meta name="theme-color" content="#0c0f0d">
 <link rel="icon" href="assets/img/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="assets/img/icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="canonical" href="https://osvo.github.io/algebra-lineal/">
-<link rel="alternate" hreflang="es" href="https://osvo.github.io/algebra-lineal/?lang=es">
-<link rel="alternate" hreflang="en" href="https://osvo.github.io/algebra-lineal/?lang=en">
+<link rel="canonical" href="https://osvo.com.co/algebra-lineal/">
+<link rel="alternate" hreflang="es" href="https://osvo.com.co/algebra-lineal/?lang=es">
+<link rel="alternate" hreflang="en" href="https://osvo.com.co/algebra-lineal/?lang=en">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Laboratorio de Álgebra Lineal">
 <meta property="og:title" content="Laboratorio de Álgebra Lineal · Las matrices también se mueven">
-<meta property="og:description" content="Laboratorio interactivo y bilingüe para aprender álgebra lineal de forma visual y exacta: transformaciones, sistemas, cambio de base, valores propios, ortogonalidad y SVD.">
-<meta property="og:url" content="https://osvo.github.io/algebra-lineal/">
-<meta property="og:image" content="https://osvo.github.io/algebra-lineal/og.png">
+<meta property="og:description" content="Laboratorio interactivo y bilingüe para aprender álgebra lineal de forma visual y exacta: combinaciones lineales, transformaciones, determinantes, sistemas, cambio de base, valores propios, ortogonalidad, formas cuadráticas, SVD y espacios de polinomios.">
+<meta property="og:url" content="https://osvo.com.co/algebra-lineal/">
+<meta property="og:image" content="https://osvo.com.co/algebra-lineal/og.png">
 <meta property="og:locale" content="es_CO">
 <meta property="og:locale:alternate" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
@@ -36,9 +36,9 @@
       <h1 data-es="Las matrices también se &lt;em&gt;mueven.&lt;/em&gt;" data-en="Matrices move, &lt;em&gt;too.&lt;/em&gt;" data-html>Las matrices también se <em>mueven.</em></h1>
     </div>
     <div class="hero-copy">
-      <p data-es="Arrastra un vector, cambia una base y observa cómo responde el espacio. Diez laboratorios que convierten operaciones abstractas en intuición visible, con cálculos exactos y explicaciones rigurosas." data-en="Drag a vector, change a basis and watch space respond. Ten labs that turn abstract operations into visible intuition, with exact computations and rigorous explanations.">Arrastra un vector, cambia una base y observa cómo responde el espacio. Diez laboratorios que convierten operaciones abstractas en intuición visible, con cálculos exactos y explicaciones rigurosas.</p>
+      <p data-es="Arrastra un vector, cambia una base y observa cómo responde el espacio. Catorce laboratorios que convierten operaciones abstractas en intuición visible, con cálculos exactos y explicaciones rigurosas." data-en="Drag a vector, change a basis and watch space respond. Fourteen labs that turn abstract operations into visible intuition, with exact computations and rigorous explanations.">Arrastra un vector, cambia una base y observa cómo responde el espacio. Catorce laboratorios que convierten operaciones abstractas en intuición visible, con cálculos exactos y explicaciones rigurosas.</p>
       <div class="hero-actions">
-        <a class="btn btn--primary" href="transformaciones_2D.html"><span data-es="Empezar por el módulo 01" data-en="Start with module 01">Empezar por el módulo 01</span></a>
+        <a class="btn btn--primary" href="combinaciones_lineales.html"><span data-es="Empezar por el módulo 01" data-en="Start with module 01">Empezar por el módulo 01</span></a>
         <a class="btn" href="#modulos"><span data-es="Ver todos los módulos" data-en="See all modules">Ver todos los módulos</span></a>
       </div>
       <p class="credit"><span data-es="Proyecto independiente inspirado en las matemáticas visuales de" data-en="Independent project inspired by the visual mathematics of">Proyecto independiente inspirado en las matemáticas visuales de</span> <a href="https://www.3blue1brown.com/" target="_blank" rel="noopener noreferrer">3Blue1Brown ↗</a></p>
@@ -50,18 +50,18 @@
     <div class="features__inner">
       <div class="feature"><span aria-hidden="true">ℚ</span><h3 data-es="Exacto" data-en="Exact">Exacto</h3><p data-es="Escribe 1/3, √2 o cos(π/6). Determinantes, inversas, valores propios y proyecciones se calculan con fracciones y radicales exactos." data-en="Type 1/3, √2 or cos(π/6). Determinants, inverses, eigenvalues and projections are computed with exact fractions and radicals.">Escribe 1/3, √2 o cos(π/6). Determinantes, inversas, valores propios y proyecciones se calculan con fracciones y radicales exactos.</p></div>
       <div class="feature"><span aria-hidden="true">∴</span><h3 data-es="Explicado" data-en="Explained">Explicado</h3><p data-es="Cada módulo explica qué estás viendo y trae una sección «Formalmente» con definiciones y teoremas enunciados con precisión." data-en="Every module explains what you are seeing and has a “Formally” section with precisely stated definitions and theorems.">Cada módulo explica qué estás viendo y trae una sección «Formalmente» con definiciones y teoremas enunciados con precisión.</p></div>
-      <div class="feature"><span aria-hidden="true">✓</span><h3 data-es="Retos" data-en="Challenges">Retos</h3><p data-es="41 ejercicios interactivos con verificación automática y pistas. Tu progreso se guarda en este navegador." data-en="41 interactive exercises with automatic checking and hints. Your progress is saved in this browser.">41 ejercicios interactivos con verificación automática y pistas. Tu progreso se guarda en este navegador.</p></div>
+      <div class="feature"><span aria-hidden="true">✓</span><h3 data-es="Retos" data-en="Challenges">Retos</h3><p data-es="58 ejercicios interactivos con verificación automática y pistas. Tu progreso se guarda en este navegador." data-en="58 interactive exercises with automatic checking and hints. Your progress is saved in this browser.">58 ejercicios interactivos con verificación automática y pistas. Tu progreso se guarda en este navegador.</p></div>
       <div class="feature"><span aria-hidden="true">↗</span><h3 data-es="Compartible" data-en="Shareable">Compartible</h3><p data-es="Cada configuración vive en la URL: compártela, proyéctala en modo presentación o descárgala como PNG. Funciona sin conexión." data-en="Every configuration lives in the URL: share it, project it in presentation mode or download it as a PNG. Works offline.">Cada configuración vive en la URL: compártela, proyéctala en modo presentación o descárgala como PNG. Funciona sin conexión.</p></div>
     </div>
   </section>
 
   <section class="modules" id="modulos">
     <div class="section-head">
-      <h2 data-es="Diez formas de ver lo invisible." data-en="Ten ways to see the invisible.">Diez formas de ver lo invisible.</h2>
-      <p data-es="Un recorrido sugerido: del plano al espacio, de los sistemas a los subespacios, del cambio de base al espectro, y de la geometría euclídea a lo que ya no es lineal. Cada módulo es independiente." data-en="A suggested path: from the plane to space, from systems to subspaces, from change of basis to the spectrum, and from Euclidean geometry to what is no longer linear. Every module stands on its own.">Un recorrido sugerido: del plano al espacio, de los sistemas a los subespacios, del cambio de base al espectro, y de la geometría euclídea a lo que ya no es lineal. Cada módulo es independiente.</p>
+      <h2 data-es="Catorce formas de ver lo invisible." data-en="Fourteen ways to see the invisible.">Catorce formas de ver lo invisible.</h2>
+      <p data-es="Un recorrido sugerido: de las combinaciones de flechas a las transformaciones, de los sistemas a los subespacios, del cambio de base al espectro, de la geometría euclídea a los espacios de funciones y a lo que ya no es lineal. Cada módulo es independiente." data-en="A suggested path: from combining arrows to transformations, from systems to subspaces, from change of basis to the spectrum, from Euclidean geometry to function spaces and to what is no longer linear. Every module stands on its own.">Un recorrido sugerido: de las combinaciones de flechas a las transformaciones, de los sistemas a los subespacios, del cambio de base al espectro, de la geometría euclídea a los espacios de funciones y a lo que ya no es lineal. Cada módulo es independiente.</p>
     </div>
     <div id="module-list"></div>
-    <noscript><ul><li><a href="transformaciones_2D.html">Transformaciones 2D</a></li><li><a href="composiciones.html">Composición</a></li><li><a href="transformaciones_3D.html">Transformaciones 3D</a></li><li><a href="sistemas_lineales.html">Sistemas Ax = b</a></li><li><a href="matrices_no_cuadradas.html">Matrices no cuadradas</a></li><li><a href="cambio_de_base.html">Cambio de base</a></li><li><a href="valores_propios.html">Valores propios y dinámica</a></li><li><a href="ortogonalidad.html">Ortogonalidad</a></li><li><a href="svd.html">Descomposición en valores singulares</a></li><li><a href="transformaciones_no_lineales.html">Transformaciones no lineales</a></li></ul></noscript>
+    <noscript><ul><li><a href="combinaciones_lineales.html">Combinaciones lineales</a></li><li><a href="transformaciones_2D.html">Transformaciones 2D</a></li><li><a href="composiciones.html">Composición</a></li><li><a href="transformaciones_3D.html">Transformaciones 3D</a></li><li><a href="determinantes.html">Determinantes</a></li><li><a href="sistemas_lineales.html">Sistemas Ax = b</a></li><li><a href="matrices_no_cuadradas.html">Matrices no cuadradas</a></li><li><a href="cambio_de_base.html">Cambio de base</a></li><li><a href="valores_propios.html">Valores propios y dinámica</a></li><li><a href="ortogonalidad.html">Ortogonalidad</a></li><li><a href="formas_cuadraticas.html">Formas cuadráticas</a></li><li><a href="svd.html">Descomposición en valores singulares</a></li><li><a href="polinomios.html">Espacios de polinomios</a></li><li><a href="transformaciones_no_lineales.html">Transformaciones no lineales</a></li></ul></noscript>
   </section>
 
   <section class="learning-note">

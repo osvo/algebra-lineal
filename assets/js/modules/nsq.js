@@ -28,7 +28,7 @@ const cloudCache = {};
 const analyze = memo((A) => {
   const { F, M: Mx } = L.fieldMatrix(A);
   const { R, rank } = L.rref(Mx, F);
-  return { F, M: Mx, R, rank, ker: L.nullspace(Mx, F), img: L.columnSpace(Mx, F), Af: A.map((r) => r.map((e) => e.x)) };
+  return { F, M: Mx, R, rank, ker: L.nullspace(Mx, F), img: L.columnSpace(Mx, F), row: L.rowSpace(Mx, F), lnull: L.nullspace(L.transpose(Mx), F), Af: A.map((r) => r.map((e) => e.x)) };
 });
 
 createLab({
@@ -44,7 +44,7 @@ createLab({
     v: { def: V(DEFAULTS['3x2'].v), codec: codec.vector(null) },
     view: { def: 'split', codec: codec.enum(['split', 'morph']) },
     t: { def: 1, codec: codec.num(0, 1) },
-    show: { def: ['ker', 'img', 'v'], codec: codec.flags(['ker', 'img', 'v', 'cloud']) },
+    show: { def: ['ker', 'img', 'v'], codec: codec.flags(['ker', 'img', 'v', 'cloud', 'row', 'lnull']) },
   },
 
   build(ctx) {
@@ -88,6 +88,8 @@ createLab({
       flagChip(store, 'show', 'img', { es: 'Imagen', en: 'Image' }, 'var(--c-img)'),
       flagChip(store, 'show', 'v', { es: 'Vector v', en: 'Vector v' }, 'var(--c-v)'),
       flagChip(store, 'show', 'cloud', { es: 'Nube de puntos', en: 'Point cloud' }, 'var(--c-w)'),
+      flagChip(store, 'show', 'row', { es: 'Espacio fila', en: 'Row space' }, 'var(--c-eig)'),
+      flagChip(store, 'show', 'lnull', { es: 'Núcleo izquierdo', en: 'Left null space' }, 'var(--c-det-neg)'),
     ];
     const showCard = card({ title: { es: 'Mostrar', en: 'Show' }, body: [h('div', { class: 'chip-row' }, chips.map((c) => c.el)), vSlot] });
 
@@ -99,6 +101,7 @@ createLab({
       inj: readout({ es: 'Tipo', en: 'Type' }),
       av: readout(null, { labelTex: 'A\\vec{v}' }),
       rref: readout({ es: 'Escalonada reducida', en: 'Reduced echelon form' }),
+      four: readout({ es: 'Los cuatro subespacios', en: 'The four subspaces' }, { block: true }),
     };
     const analysisCard = card({ title: { es: 'Análisis exacto', en: 'Exact analysis' }, body: [h('div', { class: 'readouts' }, Object.values(r).map((x) => x.el))] });
     ctx.panel.append(matrixCard.el, showCard.el, analysisCard.el);
@@ -169,6 +172,7 @@ createLab({
       if (pl.role === 'domain') {
         if (show.includes('cloud')) cloudPoints(n).forEach(({ p, color }) => g.point(pl.dim === 1 ? [p[0], 0] : p, { color, r: 2.6, alpha: 0.9 }));
         if (show.includes('ker')) drawKernel2D(g, pl, c);
+        if (show.includes('row') && pl.dim === 2) drawRow2D(g, c);
         for (let j = 0; j < n; j++) {
           const e = [0, 0]; e[j] = 1;
           const y = pl.dim === 1 ? lane(j) : 0;
@@ -181,6 +185,7 @@ createLab({
         }
       } else if (pl.role === 'codomain') {
         if (show.includes('img')) drawImage2D(g, pl, c);
+        if (show.includes('lnull') && pl.dim === 2) drawLeftNull2D(g, c);
         if (show.includes('cloud')) cloudPoints(n).forEach(({ p, color }) => {
           const q = matVecF(Af, p);
           g.point(pl.dim === 1 ? [q[0], 0] : q, { color, r: 2.6, alpha: 0.75 });
@@ -243,6 +248,31 @@ createLab({
       else g.point([0, 0], { color: g.c.ker, r: 6 });
     }
 
+    function drawRow2D(g, c) {
+      const { an, show, v } = c;
+      const rows = an.row.map((k) => k.map((x) => an.F.toNumber(x)));
+      if (rows.length === 1) {
+        g.infiniteLine([0, 0], rows[0], { color: g.c.eig, width: 3, alpha: 0.7 });
+        const ker = an.ker.map((k) => k.map((x) => an.F.toNumber(x)));
+        if (ker.length === 1) g.rightAngle([0, 0], rows[0], ker[0], { color: g.c.eig, size: 14 });
+        if (show.includes('v')) {
+          const vr = projectOnto(v, rows);
+          g.arrow([0, 0], vr, { color: g.c.eig, width: 2.5 });
+          g.line(vr, v, { color: g.c.ker, width: 1.8, dash: [5, 4] });
+          g.text(vr, 'v_row', { color: g.c.eig, offset: [10, 14], size: 11 });
+        }
+      }
+    }
+
+    function drawLeftNull2D(g, c) {
+      const ln = c.an.lnull.map((k) => k.map((x) => c.an.F.toNumber(x)));
+      if (ln.length === 1) {
+        g.infiniteLine([0, 0], ln[0], { color: g.c.detNeg, width: 3, dash: [9, 6] });
+        const img = c.an.img.map((k) => k.map((x) => c.an.F.toNumber(x)));
+        if (img.length === 1) g.rightAngle([0, 0], img[0], ln[0], { color: g.c.detNeg, size: 14 });
+      } else if (ln.length === 2) g.point([0, 0], { color: g.c.detNeg, r: 6 });
+    }
+
     function drawImage2D(g, pl, c) {
       const { an } = c;
       const img = an.img.map((v) => v.map((x) => an.F.toNumber(x)));
@@ -276,15 +306,30 @@ createLab({
         if (show.includes('ker')) {
           const ker = an.ker.map((k) => k.map((x) => an.F.toNumber(x)));
           if (ker.length === 1) sc.lineThrough([0, 0, 0], ker[0], 'ker', { length: 8 });
-          else if (ker.length === 2) sc.planeSpan([0, 0, 0], L.normalize(ker[0]), orthoTo(ker[0], ker[1]), 'ker', { size: 3.5, opacity: 0.2 });
+          else if (ker.length === 2) sc.planeSpan([0, 0, 0], L.normalize(ker[0]), L.orthoTo(ker[0], ker[1]), 'ker', { size: 3.5, opacity: 0.2 });
           else if (ker.length === 3) sc.point([0, 0, 0], 'ker', { r: 0.25, opacity: 0.4 });
+        }
+        if (show.includes('row')) {
+          const rows = an.row.map((k) => k.map((x) => an.F.toNumber(x)));
+          if (rows.length === 1) sc.lineThrough([0, 0, 0], rows[0], 'eig', { length: 8 });
+          else if (rows.length === 2) sc.planeSpan([0, 0, 0], L.normalize(rows[0]), L.orthoTo(rows[0], rows[1]), 'eig', { size: 3.5, opacity: 0.14 });
+          if (show.includes('v') && rows.length && rows.length < 3) {
+            const vr = projectOnto(v, rows);
+            sc.arrow([0, 0, 0], vr, 'eig', { radius: 0.025, opacity: 0.8 });
+            sc.line([vr, v], 'ker', { dashed: true });
+          }
         }
         if (show.includes('v')) { sc.arrow([0, 0, 0], v, 'v'); sc.label(v, '\\vec{v}', 'v', { tex: true, offset: [12, -12] }); }
       } else if (sc.role === 'codomain') {
+        if (show.includes('lnull')) {
+          const ln = an.lnull.map((k) => k.map((x) => an.F.toNumber(x)));
+          if (ln.length === 1) sc.lineThrough([0, 0, 0], ln[0], 'detNeg', { length: 8 });
+          else if (ln.length === 2) sc.planeSpan([0, 0, 0], L.normalize(ln[0]), L.orthoTo(ln[0], ln[1]), 'detNeg', { size: 3.5, opacity: 0.14 });
+        }
         if (show.includes('img')) {
           const img = an.img.map((k) => k.map((x) => an.F.toNumber(x)));
           if (n === 2 && img.length === 2) sc.planeSpan([0, 0, 0], Af.map((r) => r[0]), Af.map((r) => r[1]), 'img', { size: 3, opacity: 0.14, grid: 1 });
-          else if (img.length === 2) sc.planeSpan([0, 0, 0], L.normalize(img[0]), orthoTo(img[0], img[1]), 'img', { size: 3.5, opacity: 0.14 });
+          else if (img.length === 2) sc.planeSpan([0, 0, 0], L.normalize(img[0]), L.orthoTo(img[0], img[1]), 'img', { size: 3.5, opacity: 0.14 });
           else if (img.length === 1) {
             sc.lineThrough([0, 0, 0], img[0], 'img', { length: 8 });
             if (n === 1) for (let k = -6; k <= 6; k++) sc.point(Af.map((r) => r[0] * k), 'tgrid', { r: 0.05 });
@@ -361,6 +406,16 @@ createLab({
         r.av.show(true);
       } else r.av.show(false);
       r.rref.set(texMatrix(an.R));
+      const r0 = an.rank;
+      const perp = (B1, B2) => B1.every((u) => B2.every((w) => F.isZero(L.dot(u, w, F))));
+      r.four.set(`\\begin{aligned}
+        ${cls('c-eig', `C(A^{\\mathsf T}) = ${texSpan(an.row, n)}`)} &\\subseteq\\mathbb{R}^{${n}}, & \\dim &= ${r0} \\\\
+        ${cls('c-ker', `N(A) = ${texSpan(an.ker, n)}`)} &\\subseteq\\mathbb{R}^{${n}}, & \\dim &= ${n - r0} \\\\
+        ${cls('c-img', `C(A) = ${texSpan(an.img, m)}`)} &\\subseteq\\mathbb{R}^{${m}}, & \\dim &= ${r0} \\\\
+        ${cls('c-det-neg', `N(A^{\\mathsf T}) = ${texSpan(an.lnull, m)}`)} &\\subseteq\\mathbb{R}^{${m}}, & \\dim &= ${m - r0}
+      \\end{aligned}`, perp(an.row, an.ker) && perp(an.img, an.lnull)
+        ? { es: `Comprobado con aritmética exacta: C(Aᵀ) ⟂ N(A) en ℝ${sup(n)} y C(A) ⟂ N(Aᵀ) en ℝ${sup(m)}. Las dimensiones suman ${n} y ${m}.`, en: `Checked with exact arithmetic: C(Aᵀ) ⟂ N(A) in ℝ${sup(n)} and C(A) ⟂ N(Aᵀ) in ℝ${sup(m)}. The dimensions add up to ${n} and ${m}.` }
+        : null);
 
       ctx.setLegend([
         { color: 'var(--c-i)', tex: 'A\\hat{\\imath}' },
@@ -370,6 +425,8 @@ createLab({
         show.includes('img') && { color: 'var(--c-img)', label: { es: 'imagen (en el codominio)', en: 'image (in the codomain)' } },
         show.includes('v') && { color: 'var(--c-v)', tex: '\\vec{v}\\mapsto A\\vec{v}' },
         show.includes('cloud') && { color: 'var(--c-w)', label: { es: 'cada punto conserva su color al transformarse', en: 'each point keeps its colour when mapped' } },
+        show.includes('row') && { color: 'var(--c-eig)', label: { es: 'espacio fila C(Aᵀ)', en: 'row space C(Aᵀ)' } },
+        show.includes('lnull') && { color: 'var(--c-det-neg)', kind: 'dash', label: { es: 'núcleo izquierdo N(Aᵀ)', en: 'left null space N(Aᵀ)' } },
       ]);
       return { an, m, n };
     }
@@ -408,6 +465,14 @@ createLab({
       ],
     },
     formal: [
+      {
+        kind: 'theorem',
+        title: { es: 'Los cuatro subespacios fundamentales', en: 'The four fundamental subspaces' },
+        body: {
+          es: '<p>Para $A\\in\\mathbb{R}^{m\\times n}$ de rango $r$: el espacio fila $C(A^{\\mathsf T})$ y el núcleo $N(A)$ viven en $\\mathbb{R}^n$, tienen dimensiones $r$ y $n-r$ y son complementos ortogonales; el espacio columna $C(A)$ y el núcleo izquierdo $N(A^{\\mathsf T})$ viven en $\\mathbb{R}^m$, tienen dimensiones $r$ y $m-r$ y también son complementos ortogonales. Además $A$ lleva $C(A^{\\mathsf T})$ biyectivamente sobre $C(A)$: todo $\\mathbf{v} = \\mathbf{v}_{\\text{fila}} + \\mathbf{v}_{\\text{núcleo}}$ cumple $A\\mathbf{v} = A\\mathbf{v}_{\\text{fila}}$. (Activa «Espacio fila» y el vector $\\vec{v}$ para ver la descomposición.)</p>',
+          en: '<p>For $A\\in\\mathbb{R}^{m\\times n}$ of rank $r$: the row space $C(A^{\\mathsf T})$ and the null space $N(A)$ live in $\\mathbb{R}^n$, have dimensions $r$ and $n-r$ and are orthogonal complements; the column space $C(A)$ and the left null space $N(A^{\\mathsf T})$ live in $\\mathbb{R}^m$, have dimensions $r$ and $m-r$ and are orthogonal complements too. Moreover $A$ maps $C(A^{\\mathsf T})$ bijectively onto $C(A)$: every $\\mathbf{v} = \\mathbf{v}_{\\text{row}} + \\mathbf{v}_{\\text{null}}$ satisfies $A\\mathbf{v} = A\\mathbf{v}_{\\text{row}}$. (Turn on “Row space” and the vector $\\vec{v}$ to see the decomposition.)</p>',
+        },
+      },
       {
         kind: 'theorem',
         title: { es: 'Teorema del rango (rango–nulidad)', en: 'Rank–nullity theorem' },
@@ -520,11 +585,6 @@ function pointsObject(list) {
   return new THREE.Points(geo, new THREE.PointsMaterial({ size: 6, sizeAttenuation: false, vertexColors: true }));
 }
 
-function orthoTo(a, b) {
-  const u = L.normalize(a);
-  return L.normalize(L.subVec(b, L.scaleVec(u, L.dotFloat(b, u))));
-}
-
 function describe(dim, total, kind) {
   if (kind === 'img') {
     if (dim === 0) return { es: 'Solo el origen.', en: 'Only the origin.' };
@@ -534,4 +594,15 @@ function describe(dim, total, kind) {
   if (dim === 0) return { es: 'Solo el origen: la transformación es inyectiva.', en: 'Only the origin: the map is injective.' };
   if (dim === total) return { es: `Todo el dominio ℝ${sup(total)} colapsa: A es la matriz nula.`, en: `The whole domain ℝ${sup(total)} collapses: A is the zero matrix.` };
   return { es: dim === 1 ? 'Una recta que colapsa en el origen.' : 'Un plano que colapsa en el origen.', en: dim === 1 ? 'A line that collapses to the origin.' : 'A plane that collapses to the origin.' };
+}
+
+/** Orthogonal projection (floats) of v onto the span of the given independent vectors. */
+function projectOnto(v, basis) {
+  const q = [];
+  for (const b of basis) {
+    let w = b.slice();
+    for (const u of q) w = L.subVec(w, L.scaleVec(u, L.dotFloat(w, u)));
+    if (Math.hypot(...w) > 1e-12) q.push(L.normalize(w));
+  }
+  return q.reduce((acc, u) => L.addVec(acc, L.scaleVec(u, L.dotFloat(v, u))), v.map(() => 0));
 }

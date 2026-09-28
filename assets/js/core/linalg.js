@@ -323,3 +323,72 @@ export const scaleVec = (v, c) => v.map((a) => a * c);
 export const addVec = (u, v) => u.map((a, i) => a + v[i]);
 export const subVec = (u, v) => u.map((a, i) => a - v[i]);
 export const normalize = (v) => { const n = norm(v); return n < 1e-15 ? v.map(() => 0) : v.map((a) => a / n); };
+/** Unit vector in span{a, b} orthogonal to a (Gram–Schmidt step). */
+export const orthoTo = (a, b) => { const u = normalize(a); return normalize(subVec(b, scaleVec(u, dotFloat(b, u)))); };
+
+// ---------------------------------------------------------------------------
+// Factorizations
+// ---------------------------------------------------------------------------
+
+/**
+ * PA = LU by Doolittle elimination, swapping rows only when a pivot vanishes.
+ * Returns { L, U, P, swapped } (P is a permutation matrix).
+ */
+export function lu(A, F) {
+  const n = A.length;
+  const U = A.map((row) => row.slice());
+  const Lm = identity(n, F);
+  const perm = Array.from({ length: n }, (_, i) => i);
+  let swapped = false;
+  for (let c = 0; c < n; c++) {
+    let p = c;
+    while (p < n && F.isZero(U[p][c])) p++;
+    if (p === n) continue;
+    if (p !== c) {
+      [U[c], U[p]] = [U[p], U[c]];
+      [perm[c], perm[p]] = [perm[p], perm[c]];
+      for (let k = 0; k < c; k++) [Lm[c][k], Lm[p][k]] = [Lm[p][k], Lm[c][k]];
+      swapped = true;
+    }
+    for (let r = c + 1; r < n; r++) {
+      const f = F.div(U[r][c], U[c][c]);
+      Lm[r][c] = f;
+      U[r] = U[r].map((x, j) => F.sub(x, F.mul(f, U[c][j])));
+    }
+  }
+  const P = perm.map((i) => Array.from({ length: n }, (_, j) => (j === i ? F.one : F.zero)));
+  return { L: Lm, U, P, swapped };
+}
+
+/** Forward elimination with swaps and row additions only: det M = (−1)^swaps · ∏ uᵢᵢ. */
+export function triangularize(M, F) {
+  const U = M.map((r) => r.slice());
+  const n = U.length;
+  let swaps = 0;
+  for (let c = 0; c < n; c++) {
+    let p = -1, best = -Infinity;
+    for (let r = c; r < n; r++) { const s = F.pivotScore(U[r][c]); if (s > best) { best = s; p = r; } }
+    if (p < 0 || F.isZero(U[p][c])) continue;
+    if (p !== c) { [U[c], U[p]] = [U[p], U[c]]; swaps++; }
+    for (let r = c + 1; r < n; r++) {
+      const f = F.div(U[r][c], U[c][c]);
+      if (F.isZero(f)) continue;
+      U[r] = U[r].map((x, j) => (j < c ? x : F.sub(x, F.mul(f, U[c][j]))));
+      U[r][c] = F.zero;
+    }
+  }
+  return { U, swaps };
+}
+
+/** e^{tA} for a 2 × 2 float matrix, by Cayley–Hamilton: (A − sI)² = (s² − det A) I with s = tr A / 2. */
+export function expm2(A, t) {
+  const s = (A[0][0] + A[1][1]) / 2;
+  const D = s * s - (A[0][0] * A[1][1] - A[0][1] * A[1][0]);
+  const scale = Math.max(1, Math.abs(s * s));
+  let c, f;
+  if (D > 1e-13 * scale) { const q = Math.sqrt(D); c = Math.cosh(q * t); f = Math.sinh(q * t) / q; }
+  else if (D < -1e-13 * scale) { const w = Math.sqrt(-D); c = Math.cos(w * t); f = Math.sin(w * t) / w; }
+  else { c = 1; f = t; }
+  const e = Math.exp(s * t);
+  return [[e * (c + f * (A[0][0] - s)), e * f * A[0][1]], [e * f * A[1][0], e * (c + f * (A[1][1] - s))]];
+}

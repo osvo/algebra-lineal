@@ -79,6 +79,8 @@ createLab({
     seeds: { def: [[1, 2], [-2, 1], [2, -1.5], [-1, -2]], codec: codec.points() },
     k: { def: 6, codec: codec.num(0, 30) },
     t: { def: 3, codec: codec.num(0, 3) },
+    flow: { def: 'disc', codec: codec.enum(['disc', 'cont']) },
+    tau: { def: 2, codec: codec.num(0, 8) },
     show: { def: ['eig', 'circle'], codec: codec.flags(['eig', 'circle', 'grid']) },
   },
 
@@ -88,7 +90,9 @@ createLab({
     const animSearch = animator({ store, key: 'theta', max: 360, labelTex: '\\theta', format: (v) => `${Math.round(v)}°`, unitsPerSecond: 30 });
     const animDyn = animator({ store, key: 'k', max: 30, labelTex: 'k', format: (v) => v.toFixed(1), unitsPerSecond: 2 });
     const animDiag = animator({ store, key: 't', max: 3 });
-    ctx.bar.append(animSearch.el, animDyn.el, animDiag.el);
+    const animFlow = animator({ store, key: 'tau', max: 8, labelTex: 't', unitsPerSecond: 1 });
+    const anims = [animSearch, animDyn, animDiag, animFlow];
+    ctx.bar.append(animSearch.el, animDyn.el, animDiag.el, animFlow.el);
     const diagStages = stageLabels();
     animDiag.el.append(diagStages.el);
 
@@ -120,7 +124,7 @@ createLab({
         { value: 'dyn', label: { es: 'Dinámica', en: 'Dynamics' } },
         { value: 'diag', label: { es: 'Descomponer', en: 'Decompose' } },
       ],
-      get: () => store.get('mode'), set: (mode) => { [animSearch, animDyn, animDiag].forEach((a) => a.pause()); store.set({ mode }); },
+      get: () => store.get('mode'), set: (mode) => { anims.forEach((a) => a.pause()); store.set({ mode }); },
       label: { es: 'Modo', en: 'Mode' },
     });
     const editor = matrixEditor({ rows: 2, cols: 2, label: 'A =', colColors: COL_VARS, get: () => store.get('A'), set: (A) => store.set({ A }), name: { es: 'Matriz A', en: 'Matrix A' } });
@@ -140,8 +144,13 @@ createLab({
       store.set({ seeds: [...seeds, [Math.round(2.5 * Math.cos(ang) * 10) / 10, Math.round(2.5 * Math.sin(ang) * 10) / 10]] });
     } });
     const delSeed = button({ label: { es: 'Quitar', en: 'Remove' }, iconName: 'minus', small: true, onClick: () => store.set({ seeds: store.get('seeds').slice(0, -1) }) });
+    const flowSeg = segmented({
+      options: [{ value: 'disc', tex: '\\vec{x}_{k+1} = A\\vec{x}_k' }, { value: 'cont', tex: "\\vec{x}\\,' = A\\vec{x}" }],
+      get: () => store.get('flow'), set: (flow) => { anims.forEach((a) => a.pause()); store.set({ flow }); },
+      label: { es: 'Tiempo discreto o continuo', en: 'Discrete or continuous time' },
+    });
     const seedRow = h('div', { class: 'row' }, addSeed, delSeed);
-    const showCard = card({ title: { es: 'Mostrar', en: 'Show' }, body: [h('div', { class: 'chip-row' }, chips.map((c) => c.el)), seedRow] });
+    const showCard = card({ title: { es: 'Mostrar', en: 'Show' }, body: [flowSeg.el, h('div', { class: 'chip-row' }, chips.map((c) => c.el)), seedRow] });
 
     const r = {
       now: readout({ es: 'Ahora', en: 'Now' }, { block: true }),
@@ -197,6 +206,32 @@ createLab({
         g.arrow([0, 0], x, { color: g.c.v, width: 3.5 });
         g.mathLabel(x, 'x', { color: g.c.v, deco: 'arrow', away: [0, 0] });
         g.text(Ax, aligned ? `A x = ${fmtDecimal(L.dotFloat(Ax, x), 3)} x` : 'A x', { color: aligned ? g.c.eig : g.c.w, offset: [12, -14], weight: 600 });
+      } else if (mode === 'dyn' && cur.flow === 'cont') {
+        const { xmin, xmax, ymin, ymax } = g.p.bounds();
+        const sp = 40 / g.p.view.scale;
+        const x0 = Math.ceil(xmin / sp) * sp, y0 = Math.ceil(ymin / sp) * sp;
+        for (let x = x0; x <= xmax; x += sp) {
+          for (let y = y0; y <= ymax; y += sp) {
+            const v = L.mv2(Af, x, y);
+            const len = Math.hypot(...v);
+            if (len < 1e-12) continue;
+            const sc = (0.38 * sp) / len;
+            g.arrow([x, y], [x + v[0] * sc, y + v[1] * sc], { color: g.c.muted, width: 1.2, head: 6, alpha: 0.55 });
+          }
+        }
+        seeds.forEach((s0, idx) => {
+          const col = SEED_COLORS[idx % SEED_COLORS.length];
+          const pts = [];
+          const N = 240;
+          for (let i = 0; i <= N; i++) {
+            const p = L.mv2(L.expm2(Af, (cur.tau * i) / N), ...s0);
+            if (!Number.isFinite(p[0]) || Math.hypot(...p) > 1e4) break;
+            pts.push(p);
+          }
+          g.polyline(pts, { color: col, width: 2.2, alpha: 0.9 });
+          g.point(s0, { color: col, r: 3, alpha: 0.6 });
+          if (pts.length) { const end = pts[pts.length - 1]; g.point(end, { color: col, r: 5 }); g.text(end, 'x(t)', { color: col, offset: [9, -10], size: 11 }); }
+        });
       } else if (mode === 'dyn') {
         const K = Math.floor(k), frac = k - K;
         seeds.forEach((s0, idx) => {
@@ -219,19 +254,22 @@ createLab({
       const an = analyze(entriesKey(A), A);
       let dec = decomposition(an);
       if (dec) dec = { ...dec, Pf: toFloat(dec.P, dec.F), Midf: toFloat(dec.Mid, dec.F), Pinvf: dec.Pinv ? toFloat(dec.Pinv, dec.F) : null };
-      cur = { an, Af: an.Af, mode: state.mode, show: state.show, theta: state.theta, seeds: state.seeds, k: state.k, t: state.t, dec };
+      cur = { an, Af: an.Af, mode: state.mode, show: state.show, theta: state.theta, seeds: state.seeds, k: state.k, t: state.t, dec, flow: state.flow, tau: state.tau };
       plane.requestRender();
-      editor.update(); modeSeg.update(); animSearch.update(); animDyn.update(); animDiag.update();
+      editor.update(); modeSeg.update(); flowSeg.update(); anims.forEach((a) => a.update());
       chips.forEach((c) => c.update());
       const mode = state.mode;
       animSearch.el.hidden = mode !== 'search';
-      animDyn.el.hidden = mode !== 'dyn';
+      const cont = mode === 'dyn' && state.flow === 'cont';
+      animDyn.el.hidden = mode !== 'dyn' || cont;
+      animFlow.el.hidden = !cont;
+      flowSeg.el.hidden = mode !== 'dyn';
       animDiag.el.hidden = mode !== 'diag';
       seedRow.hidden = mode !== 'dyn';
       chips[1].el.hidden = mode !== 'search';
       setText(modeHelp, {
         search: { es: 'Gira el vector x (o reproduce): cuando A x queda sobre la misma recta que x, has encontrado un vector propio.', en: 'Turn the vector x (or press play): when A x lands on the same line as x, you have found an eigenvector.' },
-        dyn: { es: 'Cada semilla x₀ genera x₁ = A x₀, x₂ = A x₁, … Arrastra las semillas y avanza k.', en: 'Each seed x₀ generates x₁ = A x₀, x₂ = A x₁, … Drag the seeds and advance k.' },
+        dyn: cont ? { es: 'Cada semilla x₀ sigue la trayectoria x(t) = exp(tA) x₀, tangente en cada punto a la flecha A x del campo. Avanza t.', en: 'Each seed x₀ follows the trajectory x(t) = exp(tA) x₀, tangent at every point to the field arrow A x. Advance t.' } : { es: 'Cada semilla x₀ genera x₁ = A x₀, x₂ = A x₁, … Arrastra las semillas y avanza k.', en: 'Each seed x₀ generates x₁ = A x₀, x₂ = A x₁, … Drag the seeds and advance k.' },
         diag: { es: 'A = P·D·P⁻¹ se reproduce en tres etapas: P⁻¹ lleva los vectores propios a los ejes, D estira, y P los devuelve.', en: 'A = P·D·P⁻¹ plays in three stages: P⁻¹ sends the eigenvectors to the axes, D stretches, and P sends them back.' },
       }[mode]);
       if (mode === 'diag') {
@@ -248,6 +286,20 @@ createLab({
         const Ax = L.mv2(an.Af, ...x);
         const ang = Math.atan2(x[0] * Ax[1] - x[1] * Ax[0], L.dotFloat(x, Ax));
         r.now.set(`\\theta = ${fmtDecimal(state.theta, 1)}^{\\circ},\\quad \\angle(\\vec{x}, A\\vec{x}) = ${fmtDecimal((ang * 180) / Math.PI, 1)}^{\\circ}`);
+        r.now.show(true);
+      } else if (cont && state.seeds.length) {
+        const s0 = state.seeds[0];
+        const reals = eig.eigen.filter((e) => e.real);
+        const f3 = (x) => fmtDecimal(x, 3, { unicodeMinus: false });
+        if (dec && dec.kind === 'diag') {
+          const c = L.mv2(dec.Pinvf, ...s0);
+          const l1 = reals[0].approx.re, l2 = reals[1].approx.re;
+          r.now.set(`\\vec{x}(t) = e^{tA}\\vec{x}_0 = ${f3(c[0])}\\,e^{${f3(l1)}\\,t}\\,\\mathbf{p}_1 ${c[1] < 0 ? '-' : '+'} ${f3(Math.abs(c[1]))}\\,e^{${f3(l2)}\\,t}\\,\\mathbf{p}_2`,
+            { es: 'En la base de vectores propios cada componente crece o decrece como exp(λt): manda el signo de λ, no su tamaño respecto de 1.', en: 'In the eigenbasis each component grows or shrinks like exp(λt): what matters is the sign of λ, not its size relative to 1.' });
+        } else {
+          r.now.set(`\\begin{gathered}\\vec{x}(t) = e^{tA}\\vec{x}_0,\\qquad e^{tA} = e^{st}\\Big(\\cosh(qt)\\,I + \\tfrac{\\sinh(qt)}{q}\\,(A - sI)\\Big) \\\\ s = \\tfrac{\\operatorname{tr}A}{2},\\quad q^2 = s^2 - \\det A\\end{gathered}`,
+            { es: 'Por Cayley–Hamilton, (A − sI)² = q²I. Si q² < 0, cosh y sinh se vuelven cos y sin (giro); si q = 0, exp(tA) = exp(st)(I + t(A − sI)).', en: 'By Cayley–Hamilton, (A − sI)² = q²I. If q² < 0, cosh and sinh become cos and sin (rotation); if q = 0, exp(tA) = exp(st)(I + t(A − sI)).' });
+        }
         r.now.show(true);
       } else if (mode === 'dyn' && state.seeds.length) {
         const s0 = state.seeds[0];
@@ -280,7 +332,10 @@ createLab({
         }
         r.check.set(`\\lambda_1 + \\lambda_2 = ${sumTex} = \\operatorname{tr}A,\\qquad \\lambda_1\\lambda_2 = ${prodTex} = \\det A`);
       }
-      r.dyn.set({ html: `<span class="badge">${tr(classify(eig))}</span>` });
+      if (cont) {
+        const trv = an.F.toNumber(an.trace), dv = an.F.toNumber(an.det);
+        r.dyn.set({ html: `<span class="badge">${tr(classifyFlow(an))}</span>` }, { html: traceDetSVG(trv, dv) });
+      } else r.dyn.set({ html: `<span class="badge">${tr(classify(eig))}</span>` });
       if (dec) {
         const nm = dec.kind === 'complex' ? 'C' : dec.kind === 'jordan' ? 'J' : 'D';
         const P = dec.kind === 'complex' ? dec.Pf : dec.P, Mid = dec.kind === 'complex' ? dec.Midf : dec.Mid, Pinv = dec.kind === 'complex' ? dec.Pinvf : dec.Pinv;
@@ -298,7 +353,9 @@ createLab({
         mode === 'search' && { color: 'var(--c-v)', tex: '\\vec{x}' },
         mode === 'search' && { color: 'var(--c-w)', tex: 'A\\vec{x}' },
         mode === 'search' && state.show.includes('circle') && { color: 'var(--c-w)', label: { es: 'imagen del círculo unitario', en: 'image of the unit circle' } },
-        mode === 'dyn' && { color: 'var(--c-w)', label: { es: 'órbitas x₀, x₁, x₂, …', en: 'orbits x₀, x₁, x₂, …' } },
+        mode === 'dyn' && !cont && { color: 'var(--c-w)', label: { es: 'órbitas x₀, x₁, x₂, …', en: 'orbits x₀, x₁, x₂, …' } },
+        cont && { color: 'var(--c-w)', tex: '\\vec{x}(t) = e^{tA}\\vec{x}_0' },
+        cont && { color: 'var(--muted)', label: { es: 'campo A x', en: 'field A x' } },
         mode === 'diag' && { color: 'var(--tgrid)', label: { es: 'cuadrícula tras cada etapa', en: 'grid after each stage' } },
       ]);
       return { an, dec, eig };
@@ -307,8 +364,8 @@ createLab({
     return {
       render,
       snapshot: () => plane.snapshot(),
-      togglePlay: () => ({ search: animSearch, dyn: animDyn, diag: animDiag })[store.get('mode')].toggle(),
-      onReset: () => { [animSearch, animDyn, animDiag].forEach((a) => a.pause()); plane.resetView(); },
+      togglePlay: () => ({ search: animSearch, dyn: store.get('flow') === 'cont' ? animFlow : animDyn, diag: animDiag })[store.get('mode')].toggle(),
+      onReset: () => { anims.forEach((a) => a.pause()); plane.resetView(); },
     };
   },
 
@@ -440,3 +497,48 @@ function classify(eig) {
   return { es: `Caso límite: algún |λ| = 1 (hay vectores que no crecen ni decrecen)${neg.es}`, en: `Borderline: some |λ| = 1 (there are vectors that neither grow nor shrink)${neg.en}` };
 }
 
+/** Phase portrait of x' = Ax from the exact trace and determinant. */
+function classifyFlow(an) {
+  const F = an.F;
+  const tr = F.toNumber(an.trace), det = F.toNumber(an.det);
+  const trZero = F.isZero(an.trace), detZero = F.isZero(an.det);
+  // Discriminant tr² − 4 det, exact when possible.
+  const disc = F.sub(F.mul(an.trace, an.trace), F.mul(F.fromInt(4), an.det));
+  const dZero = F.isZero(disc), dv = F.toNumber(disc);
+  if (!detZero && det < 0) return { es: 'Silla: una dirección propia atrae y la otra repele (det A < 0)', en: 'Saddle: one eigen-direction attracts and the other repels (det A < 0)' };
+  if (detZero) {
+    if (trZero) return { es: 'Caso degenerado: tr A = det A = 0 (A nula o nilpotente)', en: 'Degenerate case: tr A = det A = 0 (A zero or nilpotent)' };
+    return tr < 0 ? { es: 'Recta de equilibrios que atrae (det A = 0, tr A < 0)', en: 'Attracting line of equilibria (det A = 0, tr A < 0)' } : { es: 'Recta de equilibrios que repele (det A = 0, tr A > 0)', en: 'Repelling line of equilibria (det A = 0, tr A > 0)' };
+  }
+  if (!dZero && dv < 0) {
+    if (trZero) return { es: 'Centro: órbitas cerradas (tr A = 0, det A > 0)', en: 'Centre: closed orbits (tr A = 0, det A > 0)' };
+    return tr < 0 ? { es: 'Espiral estable (λ complejos con parte real negativa)', en: 'Stable spiral (complex λ with negative real part)' } : { es: 'Espiral inestable (λ complejos con parte real positiva)', en: 'Unstable spiral (complex λ with positive real part)' };
+  }
+  const deg = dZero ? { es: ' degenerado (λ doble)', en: ' (degenerate, double λ)' } : { es: '', en: '' };
+  return tr < 0 ? { es: `Nodo estable${deg.es}: λ reales negativos`, en: `Stable node${deg.en}: negative real λ` } : { es: `Nodo inestable${deg.es}: λ reales positivos`, en: `Unstable node${deg.en}: positive real λ` };
+}
+
+/** Small trace–determinant diagram with the parabola det = tr²/4 and the current matrix. */
+function traceDetSVG(tr, det) {
+  const W = 260, H = 150, T = 5, D0 = -3, D1 = 7;
+  const X = (t) => ((t + T) / (2 * T)) * W, Y = (d) => H - ((d - D0) / (D1 - D0)) * H;
+  let path = '';
+  for (let i = 0; i <= 60; i++) { const t = -T + (2 * T * i) / 60; path += `${i ? 'L' : 'M'}${X(t).toFixed(1)},${Y((t * t) / 4).toFixed(1)}`; }
+  const cx = Math.max(4, Math.min(W - 4, X(tr))), cy = Math.max(4, Math.min(H - 4, Y(det)));
+  const txt = (x, y, str, anchor = 'middle') => `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor}" font-size="9" fill="var(--muted)" font-family="IBM Plex Mono, monospace">${str}</text>`;
+  const en = document.documentElement.lang === 'en';
+  const Lb = en
+    ? { saddle: 'saddles', ss: 'stable', us: 'unstable', sp: 'spirals', sn: 'stable node', un: 'unstable node', aria: 'Trace–determinant plane' }
+    : { saddle: 'sillas', ss: 'estable', us: 'inestable', sp: 'espirales', sn: 'nodo estable', un: 'nodo inestable', aria: 'Plano traza–determinante' };
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="margin-top:8px;max-width:100%" role="img" aria-label="${Lb.aria}">
+<rect x="0.5" y="0.5" width="${W - 1}" height="${H - 1}" fill="none" stroke="var(--line)"/>
+<line x1="0" y1="${Y(0)}" x2="${W}" y2="${Y(0)}" stroke="var(--muted)" stroke-width="1"/>
+<line x1="${X(0)}" y1="0" x2="${X(0)}" y2="${H}" stroke="var(--muted)" stroke-width="1"/>
+<path d="${path}" fill="none" stroke="var(--c-eig)" stroke-width="1.5" stroke-dasharray="4 3"/>
+${txt(W / 2, Y(-1.8), Lb.saddle)}
+${txt(X(0), Y(5.6), Lb.sp)}${txt(X(-1.7), Y(4.4), Lb.ss)}${txt(X(1.7), Y(4.4), Lb.us)}
+${txt(4, Y(1.4), Lb.sn, 'start')}${txt(W - 4, Y(1.4), Lb.un, 'end')}
+${txt(W - 4, Y(0) - 4, 'tr', 'end')}${txt(X(0) + 4, 11, 'det', 'start')}
+<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4.5" fill="var(--c-v)" stroke="var(--canvas-bg)" stroke-width="1.5"/>
+</svg>`;
+}
